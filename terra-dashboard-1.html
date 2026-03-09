@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TERRA — Dashboard de Impacto Global</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:       #030508;
+  --bg2:      #070c12;
+  --panel:    #0a1520;
+  --panel2:   #0f1e2e;
+  --cyan:     #00f0ff;
+  --cyan2:    #00a8b5;
+  --green:    #39ff14;
+  --green2:   #22cc08;
+  --amber:    #ffcc00;
+  --red:      #ff3860;
+  --purple:   #cc44ff;
+  --text:     #cce8ff;
+  --dim:      #3a6080;
+  --border:   rgba(0,240,255,0.1);
+  --border2:  rgba(0,240,255,0.2);
+  --glow-c:   0 0 30px rgba(0,240,255,0.3);
+  --glow-g:   0 0 30px rgba(57,255,20,0.3);
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+html { scroll-behavior:smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* ── GRID BG ── */
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background-image:
+    linear-gradient(rgba(0,240,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,240,255,0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events:none; z-index:0;
+}
+body::after {
+  content:'';
+  position:fixed; inset:0;
+  background: radial-gradient(ellipse at 20% 20%, rgba(0,240,255,0.04) 0%, transparent 50%),
+              radial-gradient(ellipse at 80% 80%, rgba(57,255,20,0.03) 0%, transparent 50%);
+  pointer-events:none; z-index:0;
+}
+
+/* ── NAV ── */
+nav {
+  position:fixed; top:0; left:0; right:0; z-index:300;
+  height:56px;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 2rem;
+  background:rgba(3,5,8,0.95);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border2);
+}
+.nav-left { display:flex; align-items:center; gap:2rem; }
+.logo {
+  font-family:'Bebas Neue'; font-size:1.5rem; letter-spacing:0.15em;
+  color:var(--cyan); text-shadow:var(--glow-c);
+}
+.logo span { color:var(--green); }
+.nav-pill {
+  background:rgba(57,255,20,0.1); border:1px solid rgba(57,255,20,0.3);
+  color:var(--green); font-family:'DM Mono'; font-size:0.62rem;
+  letter-spacing:0.15em; padding:0.25rem 0.75rem; border-radius:2rem;
+  display:flex; align-items:center; gap:0.4rem;
+}
+.live-dot {
+  width:6px; height:6px; border-radius:50%;
+  background:var(--green); animation:blink 1.4s ease infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+.nav-right { display:flex; align-items:center; gap:1rem; }
+.nav-link {
+  font-family:'DM Mono'; font-size:0.68rem; letter-spacing:0.1em;
+  color:var(--dim); text-decoration:none; transition:color 0.2s;
+  padding:0.3rem 0.75rem; border:1px solid transparent; border-radius:0.25rem;
+}
+.nav-link:hover { color:var(--cyan); border-color:var(--border2); }
+.nav-link.active { color:var(--cyan); border-color:var(--border2); background:rgba(0,240,255,0.05); }
+
+/* ── PAGE ── */
+.page { padding-top:56px; position:relative; z-index:1; }
+
+/* ── HERO STRIP ── */
+.hero-strip {
+  padding:3rem 2rem 2rem;
+  border-bottom:1px solid var(--border);
+  position:relative; overflow:hidden;
+}
+.hero-strip::before {
+  content:'IMPACTO';
+  position:absolute; right:-1rem; top:50%; transform:translateY(-50%);
+  font-family:'Bebas Neue'; font-size:12rem; color:rgba(0,240,255,0.025);
+  letter-spacing:0.1em; pointer-events:none; line-height:1;
+}
+.hero-label {
+  font-family:'DM Mono'; font-size:0.65rem; letter-spacing:0.25em;
+  color:var(--cyan); text-transform:uppercase; margin-bottom:0.75rem;
+  display:flex; align-items:center; gap:0.5rem;
+}
+.hero-label::before { content:'//'; color:var(--dim); }
+
+.hero-title {
+  font-family:'Bebas Neue'; font-size:clamp(3rem,8vw,6.5rem);
+  line-height:0.9; letter-spacing:0.04em;
+}
+.hero-title .hl { color:var(--green); text-shadow:var(--glow-g); }
+.hero-title .hd { color:var(--dim); font-size:0.5em; }
+
+.hero-meta {
+  display:flex; gap:3rem; margin-top:1.5rem; flex-wrap:wrap;
+}
+.hero-meta-item { display:flex; flex-direction:column; }
+.hm-val {
+  font-family:'Bebas Neue'; font-size:2rem; letter-spacing:0.05em;
+  line-height:1;
+}
+.hm-lbl {
+  font-family:'DM Mono'; font-size:0.6rem; letter-spacing:0.12em;
+  color:var(--dim); text-transform:uppercase; margin-top:0.2rem;
+}
+
+/* ── MAIN GRID ── */
+.main-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  grid-template-rows:auto;
+  gap:1px;
+  background:var(--border);
+}
+.main-grid > * { background:var(--bg2); }
+
+@media(max-width:1000px){
+  .main-grid { grid-template-columns:1fr 1fr; }
+}
+@media(max-width:640px){
+  .main-grid { grid-template-columns:1fr; }
+}
+
+/* ── PANELS ── */
+.panel { padding:1.75rem 2rem; position:relative; overflow:hidden; }
+.panel.span2 { grid-column:span 2; }
+.panel.span3 { grid-column:span 3; }
+@media(max-width:1000px){
+  .panel.span3 { grid-column:span 2; }
+}
+@media(max-width:640px){
+  .panel.span2, .panel.span3 { grid-column:span 1; }
+}
+
+.panel-label {
+  font-family:'DM Mono'; font-size:0.6rem; letter-spacing:0.2em;
+  color:var(--dim); text-transform:uppercase;
+  display:flex; align-items:center; gap:0.4rem; margin-bottom:1rem;
+}
+.panel-label::before { content:'//'; }
+
+/* ── BIG NUMBER ── */
+.big-number {
+  font-family:'Bebas Neue'; font-size:clamp(3.5rem,7vw,5.5rem);
+  line-height:0.9; letter-spacing:0.02em;
+}
+.big-number.cyan { color:var(--cyan); text-shadow:var(--glow-c); }
+.big-number.green { color:var(--green); text-shadow:var(--glow-g); }
+.big-number.amber { color:var(--amber); }
+.big-number.purple { color:var(--purple); }
+
+.number-unit {
+  font-family:'DM Mono'; font-size:0.72rem; letter-spacing:0.1em;
+  color:var(--dim); margin-top:0.4rem; text-transform:uppercase;
+}
+
+.delta {
+  display:inline-flex; align-items:center; gap:0.3rem;
+  font-family:'DM Mono'; font-size:0.68rem; margin-top:0.5rem;
+  padding:0.2rem 0.5rem; border-radius:0.25rem;
+}
+.delta.up { color:var(--green); background:rgba(57,255,20,0.08); border:1px solid rgba(57,255,20,0.2); }
+.delta.down { color:var(--red); background:rgba(255,56,96,0.08); border:1px solid rgba(255,56,96,0.2); }
+
+/* ── GLOBAL COUNTER ── */
+.global-counter-wrap { position:relative; }
+.global-pts-display {
+  font-family:'Bebas Neue'; font-size:clamp(4rem,9vw,7rem);
+  letter-spacing:0.02em; line-height:0.85; color:var(--cyan);
+  text-shadow: 0 0 60px rgba(0,240,255,0.4), 0 0 120px rgba(0,240,255,0.15);
+}
+.global-pts-sublabel {
+  font-family:'DM Mono'; font-size:0.65rem; letter-spacing:0.2em;
+  color:var(--dim); text-transform:uppercase; margin-top:0.5rem;
+}
+
+/* ── MILESTONE BAR ── */
+.milestone-section { margin-top:1.5rem; }
+.milestone-header {
+  display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;
+}
+.milestone-target {
+  font-family:'DM Mono'; font-size:0.68rem; color:var(--amber);
+  letter-spacing:0.1em;
+}
+.milestone-progress-val {
+  font-family:'Bebas Neue'; font-size:1.2rem; color:var(--cyan);
+}
+.mega-bar {
+  height:16px; background:rgba(0,240,255,0.07);
+  border:1px solid var(--border2); border-radius:2px; overflow:hidden;
+  position:relative;
+}
+.mega-bar-fill {
+  height:100%; border-radius:2px;
+  background:linear-gradient(90deg,var(--cyan2),var(--cyan),var(--green));
+  transition:width 1.5s cubic-bezier(0.16,1,0.3,1);
+  position:relative;
+}
+.mega-bar-fill::after {
+  content:''; position:absolute; right:0; top:0; bottom:0;
+  width:3px; background:white; opacity:0.8;
+  box-shadow:0 0 12px var(--cyan), 0 0 24px var(--cyan);
+}
+.mega-bar-fill::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(90deg,transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%);
+  animation:sheen 2s linear infinite;
+}
+@keyframes sheen {
+  from{transform:translateX(-100%)} to{transform:translateX(200%)}
+}
+
+/* ── MILESTONES LIST ── */
+.milestones-list { display:flex; flex-direction:column; gap:0.6rem; margin-top:1.25rem; }
+.ms-row {
+  display:flex; align-items:center; gap:1rem;
+  padding:0.75rem 1rem;
+  border:1px solid var(--border); border-radius:0.5rem;
+  background:var(--panel); transition:all 0.3s; cursor:default;
+}
+.ms-row:hover { border-color:var(--border2); background:var(--panel2); }
+.ms-row.done { border-color:rgba(57,255,20,0.2); background:rgba(57,255,20,0.04); }
+.ms-row.active-ms { border-color:rgba(255,204,0,0.3); background:rgba(255,204,0,0.04); animation:activeGlow 2s ease infinite; }
+@keyframes activeGlow { 0%,100%{box-shadow:none} 50%{box-shadow:0 0 20px rgba(255,204,0,0.1)} }
+
+.ms-icon-wrap {
+  width:38px; height:38px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.2rem; flex-shrink:0;
+  background:var(--panel2); border:1px solid var(--border);
+}
+.ms-row.done .ms-icon-wrap { background:rgba(57,255,20,0.08); border-color:rgba(57,255,20,0.3); }
+.ms-row.active-ms .ms-icon-wrap { background:rgba(255,204,0,0.08); border-color:rgba(255,204,0,0.3); }
+
+.ms-info { flex:1; min-width:0; }
+.ms-pts-label {
+  font-family:'DM Mono'; font-size:0.62rem; letter-spacing:0.1em;
+  color:var(--dim); text-transform:uppercase;
+}
+.ms-row.done .ms-pts-label { color:var(--green); }
+.ms-row.active-ms .ms-pts-label { color:var(--amber); }
+.ms-action-text { font-size:0.82rem; color:var(--text); margin-top:0.15rem; }
+.ms-company { font-family:'DM Mono'; font-size:0.65rem; color:var(--dim); margin-top:0.1rem; }
+.ms-status {
+  font-family:'Bebas Neue'; font-size:0.9rem; letter-spacing:0.08em;
+  flex-shrink:0;
+}
+.ms-row.done .ms-status { color:var(--green); }
+.ms-row.active-ms .ms-status { color:var(--amber); }
+
+/* ── CHART PANEL ── */
+.chart-wrap { position:relative; height:220px; margin-top:0.5rem; }
+
+/* ── SPONSORS ── */
+.sponsors-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; margin-top:0.5rem; }
+.sponsor-card {
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:0.75rem; padding:1.25rem; transition:all 0.3s;
+  position:relative; overflow:hidden;
+}
+.sponsor-card::before {
+  content:''; position:absolute; top:-30px; right:-30px;
+  width:100px; height:100px; border-radius:50%;
+  background:var(--sponsor-color, rgba(0,240,255,0.1));
+  filter:blur(30px); opacity:0; transition:opacity 0.3s;
+}
+.sponsor-card:hover { border-color:var(--border2); transform:translateY(-3px); }
+.sponsor-card:hover::before { opacity:1; }
+
+.sponsor-logo { font-size:2rem; margin-bottom:0.5rem; }
+.sponsor-name { font-family:'Bebas Neue'; font-size:1.2rem; letter-spacing:0.05em; }
+.sponsor-type {
+  font-family:'DM Mono'; font-size:0.6rem; letter-spacing:0.1em;
+  color:var(--dim); text-transform:uppercase; margin-bottom:0.5rem;
+}
+.sponsor-commitment { font-size:0.78rem; color:var(--text); line-height:1.5; }
+.sponsor-bar-wrap { margin-top:0.75rem; }
+.sponsor-bar-lbl {
+  display:flex; justify-content:space-between;
+  font-family:'DM Mono'; font-size:0.6rem; color:var(--dim); margin-bottom:0.3rem;
+}
+.s-bar { height:4px; background:rgba(255,255,255,0.05); border-radius:2px; overflow:hidden; }
+.s-bar-fill { height:100%; border-radius:2px; transition:width 1.5s 0.5s cubic-bezier(0.16,1,0.3,1); }
+
+.sponsor-status {
+  display:inline-flex; align-items:center; gap:0.35rem;
+  margin-top:0.75rem; font-family:'DM Mono'; font-size:0.6rem;
+  letter-spacing:0.1em; padding:0.2rem 0.6rem; border-radius:2rem;
+}
+.sponsor-status.active { color:var(--green); background:rgba(57,255,20,0.08); border:1px solid rgba(57,255,20,0.2); }
+.sponsor-status.waiting { color:var(--amber); background:rgba(255,204,0,0.08); border:1px solid rgba(255,204,0,0.2); }
+.sponsor-status.incoming { color:var(--cyan); background:rgba(0,240,255,0.08); border:1px solid rgba(0,240,255,0.2); }
+
+/* ── ACTIVITY FEED ── */
+.feed-list { display:flex; flex-direction:column; gap:0; margin-top:0.5rem; max-height:320px; overflow:hidden; position:relative; }
+.feed-list::after { content:''; position:absolute; bottom:0; left:0; right:0; height:60px; background:linear-gradient(transparent,var(--bg2)); pointer-events:none; }
+.feed-item {
+  display:flex; align-items:center; gap:0.75rem;
+  padding:0.55rem 0; border-bottom:1px solid var(--border);
+  animation:feedIn 0.4s ease;
+}
+@keyframes feedIn { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:translateX(0)} }
+.feed-flag { font-size:1rem; flex-shrink:0; }
+.feed-text { flex:1; font-size:0.78rem; color:var(--text); line-height:1.4; }
+.feed-text strong { color:var(--cyan); }
+.feed-time { font-family:'DM Mono'; font-size:0.58rem; color:var(--dim); flex-shrink:0; }
+.feed-pts { font-family:'Bebas Neue'; font-size:0.9rem; color:var(--green); flex-shrink:0; }
+
+/* ── CO2 EQUIVALENCIES ── */
+.eq-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:0.75rem; margin-top:0.5rem; }
+.eq-item {
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:0.5rem; padding:1rem; text-align:center;
+  transition:all 0.2s;
+}
+.eq-item:hover { border-color:var(--border2); transform:translateY(-2px); }
+.eq-icon { font-size:2rem; display:block; margin-bottom:0.4rem; }
+.eq-val { font-family:'Bebas Neue'; font-size:1.6rem; letter-spacing:0.02em; color:var(--green); display:block; }
+.eq-desc { font-size:0.68rem; color:var(--dim); line-height:1.4; margin-top:0.2rem; }
+
+/* ── CTA PARTNER ── */
+.cta-panel {
+  background:linear-gradient(135deg,rgba(0,240,255,0.06),rgba(57,255,20,0.03));
+  border:1px solid var(--border2);
+  display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:1.5rem;
+}
+.cta-text h2 { font-family:'Bebas Neue'; font-size:clamp(1.5rem,4vw,2.5rem); letter-spacing:0.05em; }
+.cta-text h2 span { color:var(--cyan); }
+.cta-text p { color:var(--dim); font-size:0.82rem; line-height:1.6; max-width:480px; margin-top:0.4rem; }
+.cta-btn {
+  background:var(--cyan); color:#030508;
+  border:none; padding:1rem 2.5rem; border-radius:0.35rem;
+  font-family:'Bebas Neue'; font-size:1.2rem; letter-spacing:0.1em;
+  cursor:pointer; transition:all 0.2s; white-space:nowrap; flex-shrink:0;
+}
+.cta-btn:hover { box-shadow:var(--glow-c); transform:translateY(-3px); }
+
+/* ── DONUT CHART ── */
+.donut-wrap { position:relative; width:180px; height:180px; margin:0 auto; }
+.donut-center {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  text-align:center;
+}
+.donut-center-val { font-family:'Bebas Neue'; font-size:2rem; color:var(--cyan); line-height:1; }
+.donut-center-lbl { font-family:'DM Mono'; font-size:0.55rem; color:var(--dim); letter-spacing:0.1em; }
+
+/* ── COUNTRIES MAP ── */
+.country-dots { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.5rem; }
+.c-dot {
+  font-size:1.1rem; padding:0.3rem 0.5rem;
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:0.3rem; cursor:default; transition:all 0.2s;
+  display:flex; align-items:center; gap:0.3rem;
+}
+.c-dot:hover { border-color:var(--border2); transform:scale(1.05); }
+.c-name { font-family:'DM Mono'; font-size:0.55rem; color:var(--dim); }
+.c-pts { font-family:'Bebas Neue'; font-size:0.7rem; color:var(--cyan); }
+
+/* ── ANIM ── */
+@keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+.fade-in { animation:fadeUp 0.6s ease both; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width:4px; }
+::-webkit-scrollbar-track { background:var(--bg); }
+::-webkit-scrollbar-thumb { background:var(--dim); border-radius:2px; }
+
+/* ── TICKER ── */
+.ticker-wrap {
+  background:var(--panel); border-top:1px solid var(--border); border-bottom:1px solid var(--border);
+  padding:0.5rem 0; overflow:hidden; position:relative;
+}
+.ticker-track {
+  display:flex; gap:3rem; white-space:nowrap;
+  animation:ticker 30s linear infinite;
+}
+.ticker-track:hover { animation-play-state:paused; }
+@keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+.ticker-item {
+  font-family:'DM Mono'; font-size:0.68rem; letter-spacing:0.1em;
+  color:var(--dim); display:flex; align-items:center; gap:0.5rem;
+}
+.ticker-item .t-val { color:var(--cyan); }
+.ticker-item .t-sep { color:var(--dim); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-left">
+    <div class="logo">TERRA <span>IMPACT</span></div>
+    <div class="nav-pill"><div class="live-dot"></div> DATOS EN VIVO</div>
+  </div>
+  <div class="nav-right">
+    <a href="terra-quest.html" class="nav-link active">🎮 QUEST</a>
+    <a href="terra-mapa.html" class="nav-link">🗺️ MAPA</a>
+    <a href="terra-ai.html" class="nav-link">🌿 TERRA IA</a>
+  </div>
+</nav>
+
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero-strip fade-in">
+    <div class="hero-label">Dashboard Global de Impacto · Actualizado en tiempo real</div>
+    <div class="hero-title">
+      CADA PUNTO<br>
+      <span class="hl">CAMBIA EL PLANETA</span><br>
+      <span class="hd">TERRA QUEST IMPACT SYSTEM · VIBE CODING CHILE</span>
+    </div>
+    <div class="hero-meta">
+      <div class="hero-meta-item">
+        <div class="hm-val" style="color:var(--cyan)" id="hm-users">4.832</div>
+        <div class="hm-lbl">Jugadores activos</div>
+      </div>
+      <div class="hero-meta-item">
+        <div class="hm-val" style="color:var(--green)" id="hm-countries">47</div>
+        <div class="hm-lbl">Países participando</div>
+      </div>
+      <div class="hero-meta-item">
+        <div class="hm-val" style="color:var(--amber)">3</div>
+        <div class="hm-lbl">Empresas comprometidas</div>
+      </div>
+      <div class="hero-meta-item">
+        <div class="hm-val" style="color:var(--purple)">2</div>
+        <div class="hm-lbl">Hitos completados</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TICKER -->
+  <div class="ticker-wrap">
+    <div class="ticker-track" id="ticker">
+      <span class="ticker-item">🌱 Árbol plantado en Chile <span class="t-val">+1</span></span>
+      <span class="t-sep">·</span>
+      <span class="ticker-item">🇧🇷 terra_fan ganó <span class="t-val">+120 pts</span></span>
+      <span class="t-sep">·</span>
+      <span class="ticker-item">🎯 Nueva racha x8 por 🇲🇽 verde_mex</span>
+      <span class="t-sep">·</span>
+      <span class="ticker-item">💧 Meta 200K alcanzada — Patagonia activó donación</span>
+      <span class="t-sep">·</span>
+      <span class="ticker-item">🌊 Objetivo: limpiar 10 km de costa · <span class="t-val">49.5% completado</span></span>
+      <span class="t-sep">·</span>
+      <span class="ticker-item">🦁 Especie del día: Jaguar · Bioma: Selva Tropical</span>
+      <span class="t-sep">·</span>
+      <span class="ticker-item">🇨🇱 Chile lidera ranking Latinoamérica <span class="t-val">↑</span></span>
+      <span class="t-sep">·</span>
+      <!-- Duplicate for seamless loop -->
+      <span class="ticker-item">🌱 Árbol plantado en Chile <span class="t-val">+1</span></span>
+      <span class="t-sep">·</span>
+      <span class="ticker-item">🇧🇷 terra_fan ganó <span class="t-val">+120 pts</span></span>
+      <span class="t-sep">·</span>
+      <span class="ticker-item">🎯 Nueva racha x8 por 🇲🇽 verde_mex</span>
+      <span class="t-sep">·</span>
+      <span class="ticker-item">💧 Meta 200K alcanzada — Patagonia activó donación</span>
+      <span class="t-sep">·</span>
+      <span class="ticker-item">🌊 Objetivo: limpiar 10 km de costa · <span class="t-val">49.5% completado</span></span>
+      <span class="t-sep">·</span>
+      <span class="ticker-item">🦁 Especie del día: Jaguar · Bioma: Selva Tropical</span>
+      <span class="t-sep">·</span>
+      <span class="ticker-item">🇨🇱 Chile lidera ranking Latinoamérica <span class="t-val">↑</span></span>
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid">
+
+    <!-- GLOBAL PTS LIVE -->
+    <div class="panel span2">
+      <div class="panel-label">Puntos Globales Acumulados · En vivo</div>
+      <div class="global-counter-wrap">
+        <div class="global-pts-display" id="global-pts-big">247.580</div>
+        <div class="global-pts-sublabel">PUNTOS COLECTIVOS DE LA COMUNIDAD TERRA</div>
+        <div style="display:flex;gap:1rem;margin-top:0.75rem;flex-wrap:wrap">
+          <div class="delta up">▲ +12.340 esta semana</div>
+          <div class="delta up">▲ +2.180 hoy</div>
+          <div style="font-family:'DM Mono';font-size:0.65rem;color:var(--dim);margin-top:0.1rem;align-self:center">→ actualiza cada 3s</div>
+        </div>
+      </div>
+      <div class="milestone-section">
+        <div class="milestone-header">
+          <div style="font-family:'DM Mono';font-size:0.62rem;color:var(--dim);letter-spacing:0.1em;text-transform:uppercase">Próxima meta</div>
+          <div class="milestone-target">500.000 pts → 10 km costa limpia</div>
+        </div>
+        <div class="mega-bar">
+          <div class="mega-bar-fill" id="main-bar" style="width:0%"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:0.4rem">
+          <span style="font-family:'DM Mono';font-size:0.6rem;color:var(--cyan)" id="bar-pct">49.5% completado</span>
+          <span style="font-family:'DM Mono';font-size:0.6rem;color:var(--dim)">Faltan <span id="bar-remain" style="color:var(--amber)">252.420</span> pts</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- USERS TODAY -->
+    <div class="panel">
+      <div class="panel-label">Actividad Hoy</div>
+      <div class="big-number cyan" id="stat-today">2.180</div>
+      <div class="number-unit">puntos generados hoy</div>
+      <div class="delta up" style="margin-top:0.75rem">▲ +18% vs ayer</div>
+      <div style="margin-top:1.5rem">
+        <div style="font-family:'DM Mono';font-size:0.6rem;color:var(--dim);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">// Por modo de juego</div>
+        <div style="display:flex;flex-direction:column;gap:0.5rem">
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:0.2rem">
+              <span style="font-size:0.75rem">🔬 Quiz Salvaje</span>
+              <span style="font-family:'DM Mono';font-size:0.65rem;color:var(--cyan)">52%</span>
+            </div>
+            <div style="height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden"><div style="height:100%;width:52%;background:var(--cyan);border-radius:2px"></div></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:0.2rem">
+              <span style="font-size:0.75rem">🃏 Memory Biomas</span>
+              <span style="font-family:'DM Mono';font-size:0.65rem;color:var(--green)">31%</span>
+            </div>
+            <div style="height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden"><div style="height:100%;width:31%;background:var(--green);border-radius:2px"></div></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:0.2rem">
+              <span style="font-size:0.75rem">🔀 Clasifica</span>
+              <span style="font-family:'DM Mono';font-size:0.65rem;color:var(--amber)">17%</span>
+            </div>
+            <div style="height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden"><div style="height:100%;width:17%;background:var(--amber);border-radius:2px"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GROWTH CHART -->
+    <div class="panel span2">
+      <div class="panel-label">Crecimiento de Puntos Globales · Últimas 4 semanas</div>
+      <div class="chart-wrap">
+        <canvas id="growthChart"></canvas>
+      </div>
+    </div>
+
+    <!-- DONUT -->
+    <div class="panel">
+      <div class="panel-label">Impacto por Región</div>
+      <div class="donut-wrap">
+        <canvas id="donutChart"></canvas>
+        <div class="donut-center">
+          <div class="donut-center-val">47</div>
+          <div class="donut-center-lbl">PAÍSES</div>
+        </div>
+      </div>
+      <div style="margin-top:1rem;display:flex;flex-direction:column;gap:0.4rem">
+        <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.75rem"><div style="width:8px;height:8px;border-radius:50%;background:#00f0ff;flex-shrink:0"></div>Latinoamérica <span style="margin-left:auto;font-family:'DM Mono';font-size:0.65rem;color:var(--cyan)">42%</span></div>
+        <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.75rem"><div style="width:8px;height:8px;border-radius:50%;background:#39ff14;flex-shrink:0"></div>Europa <span style="margin-left:auto;font-family:'DM Mono';font-size:0.65rem;color:var(--green)">28%</span></div>
+        <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.75rem"><div style="width:8px;height:8px;border-radius:50%;background:#ffcc00;flex-shrink:0"></div>Norteamérica <span style="margin-left:auto;font-family:'DM Mono';font-size:0.65rem;color:var(--amber)">18%</span></div>
+        <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.75rem"><div style="width:8px;height:8px;border-radius:50%;background:#cc44ff;flex-shrink:0"></div>Otros <span style="margin-left:auto;font-family:'DM Mono';font-size:0.65rem;color:var(--purple)">12%</span></div>
+      </div>
+    </div>
+
+    <!-- MILESTONES -->
+    <div class="panel span3">
+      <div class="panel-label">Hitos de Impacto · Compromisos Corporativos Activados</div>
+      <div class="milestones-list">
+        <div class="ms-row done">
+          <div class="ms-icon-wrap">🌱</div>
+          <div class="ms-info">
+            <div class="ms-pts-label">✓ 100.000 pts — COMPLETADO</div>
+            <div class="ms-action-text">Ecosia plantó 500 árboles nativos en la Región de La Araucanía, Chile</div>
+            <div class="ms-company">Ecosia.org · Donación activada el 12 Feb 2026</div>
+          </div>
+          <div class="ms-status">HECHO ✓</div>
+        </div>
+        <div class="ms-row done">
+          <div class="ms-icon-wrap">💧</div>
+          <div class="ms-info">
+            <div class="ms-pts-label">✓ 200.000 pts — COMPLETADO</div>
+            <div class="ms-action-text">Patagonia Inc. donó 200 filtros de agua potable para comunidades rurales de Atacama</div>
+            <div class="ms-company">Patagonia Inc. · Donación activada el 28 Feb 2026</div>
+          </div>
+          <div class="ms-status">HECHO ✓</div>
+        </div>
+        <div class="ms-row active-ms">
+          <div class="ms-icon-wrap">🌊</div>
+          <div class="ms-info">
+            <div class="ms-pts-label">→ 500.000 pts — EN PROGRESO · 49.5%</div>
+            <div class="ms-action-text">BancoEstado Verde limpiará 10 km de costa en Chiloé + revegetación de borde costero</div>
+            <div class="ms-company">BancoEstado Verde · Compromiso firmado · Activa al llegar a la meta</div>
+          </div>
+          <div class="ms-status">EN CURSO</div>
+        </div>
+        <div class="ms-row">
+          <div class="ms-icon-wrap">☀️</div>
+          <div class="ms-info">
+            <div class="ms-pts-label">1.000.000 pts — PENDIENTE</div>
+            <div class="ms-action-text">Empresa socia instalará 50 paneles solares en escuelas rurales de la Región del Maule</div>
+            <div class="ms-company">Socio corporativo por confirmar · En negociación</div>
+          </div>
+          <div class="ms-status" style="color:var(--dim)">PENDIENTE</div>
+        </div>
+        <div class="ms-row">
+          <div class="ms-icon-wrap">🌿</div>
+          <div class="ms-info">
+            <div class="ms-pts-label">2.000.000 pts — PENDIENTE</div>
+            <div class="ms-action-text">Corredor biológico en la Patagonia: 5.000 hectáreas protegidas indefinidamente</div>
+            <div class="ms-company">En búsqueda de socio corporativo comprometido</div>
+          </div>
+          <div class="ms-status" style="color:var(--dim)">PENDIENTE</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SPONSORS -->
+    <div class="panel span3">
+      <div class="panel-label">Empresas Socias · Responsabilidad Ambiental Verificada</div>
+      <div class="sponsors-grid">
+        <div class="sponsor-card" style="--sponsor-color:rgba(57,255,20,0.1)">
+          <div class="sponsor-logo">🌳</div>
+          <div class="sponsor-name">Ecosia</div>
+          <div class="sponsor-type">Tecnología · Motor de búsqueda verde</div>
+          <div class="sponsor-commitment">Planta un árbol por cada 45 búsquedas. En Terra, activa siembra masiva al llegar a hitos de puntos.</div>
+          <div class="sponsor-bar-wrap">
+            <div class="sponsor-bar-lbl"><span>Meta cumplida</span><span style="color:var(--green)">100%</span></div>
+            <div class="s-bar"><div class="s-bar-fill" style="width:100%;background:var(--green)"></div></div>
+          </div>
+          <div class="sponsor-status active"><span style="width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block"></span> ACTIVO</div>
+        </div>
+        <div class="sponsor-card" style="--sponsor-color:rgba(0,240,255,0.1)">
+          <div class="sponsor-logo">🧥</div>
+          <div class="sponsor-name">Patagonia</div>
+          <div class="sponsor-type">Indumentaria · 1% for the Planet</div>
+          <div class="sponsor-commitment">Destina el 1% de ventas a causas ambientales. En Terra, donó filtros de agua al comunidades afectadas por sequía.</div>
+          <div class="sponsor-bar-wrap">
+            <div class="sponsor-bar-lbl"><span>Meta cumplida</span><span style="color:var(--green)">100%</span></div>
+            <div class="s-bar"><div class="s-bar-fill" style="width:100%;background:var(--green)"></div></div>
+          </div>
+          <div class="sponsor-status active"><span style="width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block"></span> ACTIVO</div>
+        </div>
+        <div class="sponsor-card" style="--sponsor-color:rgba(255,204,0,0.1)">
+          <div class="sponsor-logo">🏦</div>
+          <div class="sponsor-name">BancoEstado Verde</div>
+          <div class="sponsor-type">Finanzas · Programa huella cero 2030</div>
+          <div class="sponsor-commitment">Comprometidos con neutralidad de carbono al 2030. Limpiarán 10 km de costa en Chiloé cuando se alcance la meta de 500K pts.</div>
+          <div class="sponsor-bar-wrap">
+            <div class="sponsor-bar-lbl"><span>En progreso</span><span style="color:var(--amber)">49.5%</span></div>
+            <div class="s-bar"><div class="s-bar-fill" style="width:49.5%;background:var(--amber)"></div></div>
+          </div>
+          <div class="sponsor-status waiting"><span style="width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block"></span> ESPERANDO META</div>
+        </div>
+        <div class="sponsor-card" style="--sponsor-color:rgba(204,68,255,0.1);opacity:0.7">
+          <div class="sponsor-logo">⚡</div>
+          <div class="sponsor-name">Tu empresa aquí</div>
+          <div class="sponsor-type">Programa RSE · Reducción huella CO₂</div>
+          <div class="sponsor-commitment">¿Tu empresa tiene un programa de responsabilidad ambiental? Súmala a Terra y activa donaciones reales medibles.</div>
+          <div class="sponsor-bar-wrap">
+            <div class="sponsor-bar-lbl"><span>Slot disponible</span><span style="color:var(--purple)">—</span></div>
+            <div class="s-bar"><div class="s-bar-fill" style="width:0%;background:var(--purple)"></div></div>
+          </div>
+          <div class="sponsor-status incoming"><span style="width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block"></span> DISPONIBLE</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CO2 EQUIVALENCIAS -->
+    <div class="panel span2">
+      <div class="panel-label">CO₂ Equivalente · Lo que representa el impacto global</div>
+      <div class="eq-grid">
+        <div class="eq-item">
+          <span class="eq-icon">🌳</span>
+          <span class="eq-val" id="eq-trees">500</span>
+          <div class="eq-desc">Árboles nativos plantados</div>
+        </div>
+        <div class="eq-item">
+          <span class="eq-icon">🚗</span>
+          <span class="eq-val" id="eq-cars">12</span>
+          <div class="eq-desc">Autos sacados de circulación equivalente</div>
+        </div>
+        <div class="eq-item">
+          <span class="eq-icon">💡</span>
+          <span class="eq-val" id="eq-homes">38</span>
+          <div class="eq-desc">Hogares con energía limpia un año</div>
+        </div>
+        <div class="eq-item">
+          <span class="eq-icon">✈️</span>
+          <span class="eq-val" id="eq-flights">84</span>
+          <div class="eq-desc">Vuelos Stgo–Madrid no realizados equiv.</div>
+        </div>
+        <div class="eq-item">
+          <span class="eq-icon">🌊</span>
+          <span class="eq-val">0</span>
+          <div class="eq-desc">km de costa comprometidos a limpiar</div>
+        </div>
+        <div class="eq-item">
+          <span class="eq-icon">💧</span>
+          <span class="eq-val">200</span>
+          <div class="eq-desc">Familias con acceso a agua potable</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIVE FEED -->
+    <div class="panel">
+      <div class="panel-label">Actividad en Vivo · Comunidad Global</div>
+      <div class="feed-list" id="feed-list"></div>
+    </div>
+
+    <!-- TOP COUNTRIES -->
+    <div class="panel span2">
+      <div class="panel-label">Top Países · Por Puntos Acumulados</div>
+      <div class="country-dots" id="country-dots"></div>
+    </div>
+
+    <!-- KNOWLEDGE STAT -->
+    <div class="panel">
+      <div class="panel-label">Conocimiento Ganado</div>
+      <div class="big-number green" id="stat-questions">89.240</div>
+      <div class="number-unit">preguntas respondidas</div>
+      <div class="delta up" style="margin-top:0.75rem">▲ Sobre biodiversidad real</div>
+      <div style="margin-top:1.5rem;display:flex;flex-direction:column;gap:0.75rem">
+        <div style="font-family:'DM Mono';font-size:0.6rem;color:var(--dim);letter-spacing:0.1em;text-transform:uppercase">// Bioma más jugado</div>
+        <div style="font-size:1.5rem">🌴 Selva Tropical</div>
+        <div style="font-size:0.78rem;color:var(--dim)">34% de todas las preguntas</div>
+      </div>
+    </div>
+
+    <!-- CTA PARTNER -->
+    <div class="panel span3 cta-panel">
+      <div class="cta-text">
+        <h2>¿Tu empresa quiere <span>activar impacto real?</span></h2>
+        <p>Únete a Terra como empresa socia. Define un compromiso ambiental medible y auditado — nosotros lo conectamos con miles de jugadores que lo harán realidad con sus puntos. RSE con métricas reales, visibilidad global y propósito genuino.</p>
+      </div>
+      <button class="cta-btn" onclick="alert('📧 Contacto: hola@terraquest.earth\n\nEscríbenos y diseñamos juntos tu programa de impacto.')">QUIERO SER SOCIO →</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ══════════════════════════
+// GLOBAL STATE
+// ══════════════════════════
+let globalPts = 247580;
+
+// ══════════════════════════
+// COUNTERS
+// ══════════════════════════
+function animateNum(el, target, duration=1800, decimals=0, prefix='', suffix=''){
+  if(!el) return;
+  const start = performance.now();
+  const startVal = 0;
+  function tick(now){
+    const p = Math.min((now-start)/duration,1);
+    const ease = 1-Math.pow(1-p,4);
+    const val = startVal + (target-startVal)*ease;
+    el.textContent = prefix + (decimals>0?val.toFixed(decimals):Math.round(val)).toLocaleString('es-CL') + suffix;
+    if(p<1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+window.addEventListener('load',()=>{
+  setTimeout(()=>{
+    animateNum(document.getElementById('global-pts-big'), globalPts, 2200);
+    animateNum(document.getElementById('hm-users'), 4832, 1500);
+    animateNum(document.getElementById('stat-today'), 2180, 1800);
+    animateNum(document.getElementById('stat-questions'), 89240, 2000);
+    animateNum(document.getElementById('eq-trees'), 500, 1500);
+    animateNum(document.getElementById('eq-cars'), 12, 1200);
+    animateNum(document.getElementById('eq-homes'), 38, 1200);
+    animateNum(document.getElementById('eq-flights'), 84, 1400);
+    // bar
+    setTimeout(()=>{
+      document.getElementById('main-bar').style.width = '49.5%';
+    },400);
+  },200);
+});
+
+// ══════════════════════════
+// LIVE TICK
+// ══════════════════════════
+setInterval(()=>{
+  const inc = Math.floor(Math.random()*12+2);
+  globalPts += inc;
+  const el = document.getElementById('global-pts-big');
+  if(el) el.textContent = globalPts.toLocaleString('es-CL');
+  const pct = Math.min((globalPts/500000)*100,100).toFixed(1);
+  const remain = Math.max(0,500000-globalPts);
+  const barEl = document.getElementById('main-bar');
+  if(barEl) barEl.style.width = pct+'%';
+  const pctEl = document.getElementById('bar-pct');
+  if(pctEl) pctEl.textContent = pct+'% completado';
+  const remEl = document.getElementById('bar-remain');
+  if(remEl) remEl.textContent = remain.toLocaleString('es-CL');
+},3000);
+
+// ══════════════════════════
+// GROWTH CHART
+// ══════════════════════════
+const ctx = document.getElementById('growthChart').getContext('2d');
+const weeks = ['S-4','S-3','S-2','S-1','Esta semana'];
+const basePts = [48200, 89400, 148600, 210300, 247580];
+
+Chart.defaults.color = '#3a6080';
+Chart.defaults.borderColor = 'rgba(0,240,255,0.06)';
+
+new Chart(ctx, {
+  type:'line',
+  data:{
+    labels: weeks,
+    datasets:[{
+      label:'Puntos Globales',
+      data: basePts,
+      borderColor: '#00f0ff',
+      backgroundColor: 'rgba(0,240,255,0.04)',
+      borderWidth: 2,
+      pointBackgroundColor: '#00f0ff',
+      pointBorderColor: '#030508',
+      pointBorderWidth: 2,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+      fill: true,
+      tension: 0.4,
+    },{
+      label:'Meta',
+      data: [500000,500000,500000,500000,500000],
+      borderColor: 'rgba(255,204,0,0.3)',
+      borderDash: [6,4],
+      borderWidth: 1.5,
+      pointRadius: 0,
+      fill: false,
+    }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{
+      legend:{ display:false },
+      tooltip:{
+        backgroundColor:'rgba(10,21,32,0.95)',
+        borderColor:'rgba(0,240,255,0.3)',
+        borderWidth:1,
+        titleFont:{ family:'DM Mono', size:11 },
+        bodyFont:{ family:'DM Mono', size:11 },
+        callbacks:{
+          label: ctx => ' '+ctx.parsed.y.toLocaleString('es-CL')+' pts'
+        }
+      }
+    },
+    scales:{
+      x:{
+        grid:{ color:'rgba(0,240,255,0.04)' },
+        ticks:{ font:{ family:'DM Mono', size:10 }, color:'#3a6080' }
+      },
+      y:{
+        grid:{ color:'rgba(0,240,255,0.04)' },
+        ticks:{ font:{ family:'DM Mono', size:10 }, color:'#3a6080',
+          callback: v => (v/1000).toFixed(0)+'k' }
+      }
+    }
+  }
+});
+
+// ══════════════════════════
+// DONUT CHART
+// ══════════════════════════
+const dCtx = document.getElementById('donutChart').getContext('2d');
+new Chart(dCtx,{
+  type:'doughnut',
+  data:{
+    labels:['Latinoamérica','Europa','Norteamérica','Otros'],
+    datasets:[{
+      data:[42,28,18,12],
+      backgroundColor:['rgba(0,240,255,0.7)','rgba(57,255,20,0.7)','rgba(255,204,0,0.7)','rgba(204,68,255,0.7)'],
+      borderColor:'#030508',
+      borderWidth:3,
+      hoverOffset:8,
+    }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:true, cutout:'70%',
+    plugins:{
+      legend:{ display:false },
+      tooltip:{
+        backgroundColor:'rgba(10,21,32,0.95)',
+        borderColor:'rgba(0,240,255,0.3)',
+        borderWidth:1,
+        titleFont:{ family:'DM Mono', size:11 },
+        bodyFont:{ family:'DM Mono', size:11 },
+        callbacks:{ label: ctx=>` ${ctx.label}: ${ctx.parsed}%` }
+      }
+    }
+  }
+});
+
+// ══════════════════════════
+// LIVE FEED
+// ══════════════════════════
+const FEED_EVENTS = [
+  {flag:'🇨🇱',text:'<strong>rapcl</strong> completó Quiz Salvaje con racha ×8',pts:'+340'},
+  {flag:'🇧🇷',text:'<strong>terra_fan</strong> alcanzó el nivel Guardián del Bosque',pts:'+200'},
+  {flag:'🇲🇽',text:'<strong>verde_mex</strong> clasificó 8/8 especies correctamente',pts:'+280'},
+  {flag:'🇦🇷',text:'<strong>pampa_free</strong> jugó Memory Biomas en 42 segundos',pts:'+220'},
+  {flag:'🇨🇴',text:'<strong>bioamor</strong> respondió 10/10 preguntas sobre océanos',pts:'+350'},
+  {flag:'🇵🇪',text:'<strong>andes_kid</strong> desbloqueó insignia Cóndor Andino',pts:'+150'},
+  {flag:'🇪🇸',text:'<strong>iberia_eco</strong> invitó a 3 amigos a Terra Quest',pts:'+100'},
+  {flag:'🇩🇪',text:'<strong>wald_herr</strong> completó todos los biomas del juego',pts:'+500'},
+  {flag:'🇯🇵',text:'<strong>green_jp</strong> alcanzó 5.000 puntos acumulados',pts:'+50'},
+  {flag:'🌍',text:'<strong>eco_warrior</strong> jugó desde un nuevo dispositivo',pts:'+80'},
+];
+
+let feedIndex = 0;
+const feedList = document.getElementById('feed-list');
+
+function addFeedItem(){
+  const ev = FEED_EVENTS[feedIndex % FEED_EVENTS.length];
+  feedIndex++;
+  const timeAgo = `hace ${Math.floor(Math.random()*59)+1}s`;
+  const item = document.createElement('div');
+  item.className='feed-item';
+  item.innerHTML=`
+    <span class="feed-flag">${ev.flag}</span>
+    <span class="feed-text">${ev.text}</span>
+    <span class="feed-time">${timeAgo}</span>
+    <span class="feed-pts">${ev.pts}</span>
+  `;
+  feedList.insertBefore(item, feedList.firstChild);
+  if(feedList.children.length > 12) feedList.removeChild(feedList.lastChild);
+}
+
+// Initial feed
+for(let i=0;i<8;i++) addFeedItem();
+setInterval(addFeedItem, 2800);
+
+// ══════════════════════════
+// COUNTRY DOTS
+// ══════════════════════════
+const COUNTRIES = [
+  {flag:'🇨🇱',name:'Chile',pts:'47.2K'},
+  {flag:'🇧🇷',name:'Brasil',pts:'38.9K'},
+  {flag:'🇲🇽',name:'México',pts:'29.4K'},
+  {flag:'🇦🇷',name:'Argentina',pts:'22.1K'},
+  {flag:'🇨🇴',name:'Colombia',pts:'18.7K'},
+  {flag:'🇩🇪',name:'Alemania',pts:'15.3K'},
+  {flag:'🇪🇸',name:'España',pts:'14.8K'},
+  {flag:'🇵🇪',name:'Perú',pts:'12.0K'},
+  {flag:'🇺🇸',name:'EEUU',pts:'10.2K'},
+  {flag:'🇯🇵',name:'Japón',pts:'9.4K'},
+  {flag:'🇫🇷',name:'Francia',pts:'8.1K'},
+  {flag:'🇬🇧',name:'UK',pts:'7.6K'},
+];
+const dotsEl = document.getElementById('country-dots');
+COUNTRIES.forEach(c=>{
+  dotsEl.innerHTML += `
+    <div class="c-dot">
+      <span>${c.flag}</span>
+      <div>
+        <div class="c-name">${c.name}</div>
+        <div class="c-pts">${c.pts}</div>
+      </div>
+    </div>`;
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TERRA — IA para el Planeta</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Mono:wght@300;400;500&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050f08;
+    --surface: #0a1a10;
+    --surface2: #0f2416;
+    --green: #2dff7e;
+    --green-dim: #1a9948;
+    --green-glow: rgba(45,255,126,0.15);
+    --amber: #f5c542;
+    --red: #ff4d4d;
+    --text: #e8f5ec;
+    --text-dim: #6b8f72;
+    --border: rgba(45,255,126,0.12);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── NOISE OVERLAY ─── */
+  body::before {
+    content:'';
+    position:fixed;
+    inset:0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events:none;
+    z-index:1000;
+    opacity:0.4;
+  }
+
+  /* ─── HERO ─── */
+  #hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    animation: breathe 8s ease-in-out infinite;
+  }
+  .orb-1 { width:500px; height:500px; background:rgba(45,255,126,0.07); top:-100px; left:-100px; }
+  .orb-2 { width:400px; height:400px; background:rgba(45,255,126,0.05); bottom:-80px; right:-80px; animation-delay:-4s; }
+
+  @keyframes breathe {
+    0%,100% { transform: scale(1); opacity:0.6; }
+    50% { transform: scale(1.2); opacity:1; }
+  }
+
+  .badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.25em;
+    color: var(--green);
+    border: 1px solid var(--green-dim);
+    padding: 0.35rem 1rem;
+    border-radius: 2rem;
+    margin-bottom: 2rem;
+    animation: fadeUp 0.8s ease both;
+    background: rgba(45,255,126,0.05);
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(3.5rem, 10vw, 8rem);
+    font-weight: 900;
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    animation: fadeUp 0.8s 0.1s ease both;
+  }
+
+  h1 .accent { color: var(--green); font-style: italic; }
+
+  .hero-sub {
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    color: var(--text-dim);
+    max-width: 560px;
+    line-height: 1.7;
+    margin: 1.5rem 0 2.5rem;
+    font-weight: 300;
+    animation: fadeUp 0.8s 0.2s ease both;
+  }
+
+  .hero-cta {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    animation: fadeUp 0.8s 0.3s ease both;
+  }
+
+  .btn-primary {
+    background: var(--green);
+    color: #050f08;
+    border: none;
+    padding: 0.9rem 2.2rem;
+    border-radius: 0.5rem;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.03em;
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(45,255,126,0.35); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 0.9rem 2.2rem;
+    border-radius: 0.5rem;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 400;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-ghost:hover { border-color: var(--green-dim); color: var(--green); }
+
+  @keyframes fadeUp {
+    from { opacity:0; transform: translateY(20px); }
+    to { opacity:1; transform: translateY(0); }
+  }
+
+  /* ─── STATS BAR ─── */
+  .stats-bar {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .stat-item {
+    padding: 1.5rem 3rem;
+    border-right: 1px solid var(--border);
+    text-align: center;
+    flex: 1;
+    min-width: 160px;
+  }
+  .stat-item:last-child { border-right: none; }
+
+  .stat-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--green);
+    display: block;
+  }
+  .stat-label {
+    font-size: 0.72rem;
+    font-family: 'DM Mono', monospace;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* ─── SECTIONS ─── */
+  section { padding: 5rem 1.5rem; max-width: 1100px; margin: 0 auto; }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.25em;
+    color: var(--green);
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 1rem;
+  }
+
+  /* ─── CARBON CALCULATOR ─── */
+  #calculator { 
+    background: var(--surface); 
+    border: 1px solid var(--border); 
+    border-radius: 1.5rem; 
+    padding: 2.5rem;
+    max-width: 800px;
+    margin: 0 auto 4rem;
+  }
+
+  .calc-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+  }
+  .calc-sub { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 2rem; }
+
+  .calc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin-bottom: 2rem; }
+  @media(max-width:600px) { .calc-grid { grid-template-columns:1fr; } }
+
+  .calc-field label {
+    display: block;
+    font-size: 0.78rem;
+    font-family: 'DM Mono', monospace;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+  }
+
+  .calc-field select, .calc-field input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .calc-field select:focus, .calc-field input:focus { border-color: var(--green-dim); }
+
+  .calc-result {
+    display: none;
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    animation: fadeUp 0.4s ease;
+  }
+  .calc-result.visible { display: block; }
+
+  .result-number {
+    font-family: 'Playfair Display', serif;
+    font-size: 3.5rem;
+    color: var(--green);
+    font-weight: 700;
+  }
+  .result-label { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 1rem; }
+
+  .result-bar {
+    height: 8px;
+    background: var(--bg);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 1rem 0;
+  }
+  .result-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 1s cubic-bezier(0.16,1,0.3,1);
+  }
+
+  .tips-list { margin-top: 1rem; }
+  .tip-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+  }
+  .tip-item:last-child { border-bottom: none; }
+  .tip-icon { color: var(--green); font-size: 1rem; flex-shrink: 0; margin-top: 0.1rem; }
+
+  /* ─── CHAT ─── */
+  #chat-section { max-width: 800px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+
+  .chat-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 1.5rem;
+    overflow: hidden;
+  }
+
+  .chat-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .chat-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--green-glow);
+    border: 1px solid var(--green-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+  }
+
+  .chat-name { font-weight: 600; font-size: 0.95rem; }
+  .chat-status { font-size: 0.72rem; color: var(--green); font-family: 'DM Mono', monospace; }
+
+  #chat-messages {
+    height: 380px;
+    overflow-y: auto;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .msg {
+    max-width: 85%;
+    animation: fadeUp 0.3s ease;
+  }
+  .msg.user { align-self: flex-end; }
+  .msg.ai { align-self: flex-start; }
+
+  .msg-bubble {
+    padding: 0.85rem 1.1rem;
+    border-radius: 1rem;
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+  .msg.user .msg-bubble { background: var(--green); color: #050f08; font-weight: 500; border-bottom-right-radius: 0.2rem; }
+  .msg.ai .msg-bubble { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-bottom-left-radius: 0.2rem; }
+
+  .typing-indicator { display: flex; gap: 4px; padding: 1rem 1.1rem; }
+  .typing-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green-dim); animation: bounce 1.2s ease infinite; }
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,80%,100% { transform:translateY(0); } 40% { transform:translateY(-6px); } }
+
+  .chat-input-area {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  #chat-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+    resize: none;
+  }
+  #chat-input:focus { border-color: var(--green-dim); }
+  #chat-input::placeholder { color: var(--text-dim); }
+
+  #send-btn {
+    background: var(--green);
+    border: none;
+    border-radius: 0.75rem;
+    width: 44px;
+    height: 44px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    color: #050f08;
+    font-size: 1.1rem;
+  }
+  #send-btn:hover { transform: scale(1.05); box-shadow: 0 4px 20px rgba(45,255,126,0.3); }
+  #send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .quick-questions {
+    padding: 0 1.25rem 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .quick-q {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 2rem;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'DM Mono', monospace;
+  }
+  .quick-q:hover { border-color: var(--green-dim); color: var(--green); }
+
+  /* ─── CARDS INFO ─── */
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 2.5rem; }
+
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 1.25rem;
+    padding: 2rem;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .info-card::before {
+    content:'';
+    position:absolute;
+    top:-50px; right:-50px;
+    width:150px; height:150px;
+    background: var(--green-glow);
+    border-radius:50%;
+    filter:blur(40px);
+    opacity:0;
+    transition: opacity 0.3s;
+  }
+  .info-card:hover::before { opacity:1; }
+  .info-card:hover { border-color: var(--green-dim); transform: translateY(-4px); }
+
+  .card-icon { font-size: 2rem; margin-bottom: 1rem; }
+  .card-title { font-family: 'Playfair Display', serif; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .card-text { color: var(--text-dim); font-size: 0.88rem; line-height: 1.7; }
+
+  /* ─── GLOBE VISUAL ─── */
+  .globe-wrap {
+    display: flex;
+    justify-content: center;
+    margin: 3rem 0;
+  }
+
+  .globe {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #1a4a2a, #050f08);
+    border: 2px solid var(--green-dim);
+    box-shadow: 0 0 60px rgba(45,255,126,0.15), inset 0 0 40px rgba(45,255,126,0.05);
+    position: relative;
+    animation: spin 20s linear infinite;
+  }
+
+  @keyframes spin { from { box-shadow: 0 0 60px rgba(45,255,126,0.15), inset 0 0 40px rgba(45,255,126,0.05), 20px 0 40px rgba(45,255,126,0.08); } to { box-shadow: 0 0 60px rgba(45,255,126,0.15), inset 0 0 40px rgba(45,255,126,0.05), -20px 0 40px rgba(45,255,126,0.08); } }
+
+  /* ─── FOOTER ─── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 1.5rem;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    font-family: 'DM Mono', monospace;
+  }
+  footer span { color: var(--green); }
+
+  /* ─── NAV ─── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(5,15,8,0.8);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem;
+    font-weight: 900;
+    color: var(--green);
+    letter-spacing: -0.02em;
+  }
+
+  .nav-links { display: flex; gap: 2rem; list-style: none; }
+  .nav-links a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-family: 'DM Mono', monospace;
+    transition: color 0.2s;
+    letter-spacing: 0.05em;
+  }
+  .nav-links a:hover { color: var(--green); }
+
+  @media(max-width: 600px) { .nav-links { display: none; } }
+
+  /* ─── ERROR MSG ─── */
+  .error-msg { color: #ff6b6b; font-size: 0.82rem; font-family: 'DM Mono', monospace; padding: 0.5rem 0; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">TERRA</div>
+  <ul class="nav-links">
+    <li><a href="#calcular">Calcular</a></li>
+    <li><a href="#conversar">Conversar</a></li>
+    <li><a href="#aprender">Aprender</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="badge">🌍 IA al servicio del planeta</div>
+  <h1>El cambio<br>empieza <span class="accent">aquí.</span></h1>
+  <p class="hero-sub">TERRA usa inteligencia artificial para ayudarte a entender, reducir y transformar tu huella de carbono. No importa quién seas o dónde estés.</p>
+  <div class="hero-cta">
+    <button class="btn-primary" onclick="document.getElementById('calcular').scrollIntoView({behavior:'smooth'})">Calcular mi huella</button>
+    <button class="btn-ghost" onclick="document.getElementById('conversar').scrollIntoView({behavior:'smooth'})">Hablar con Terra IA</button>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-bar">
+  <div class="stat-item">
+    <span class="stat-num" id="s1">0</span>
+    <span class="stat-label">Países afectados por clima extremo</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-num" id="s2">0</span>
+    <span class="stat-label">Toneladas CO₂ al año (promedio global)</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-num" id="s3">0%</span>
+    <span class="stat-label">Meta reducción 2030 (Acuerdo París)</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-num" id="s4">0</span>
+    <span class="stat-label">Millones de personas sin agua limpia</span>
+  </div>
+</div>
+
+<!-- CALCULADORA -->
+<div style="background:var(--surface2); padding:5rem 1.5rem;" id="calcular">
+  <div id="calculator">
+    <p class="section-label">// herramienta</p>
+    <div class="calc-title">Calcula tu huella de carbono</div>
+    <p class="calc-sub">Responde estas 6 preguntas y Terra IA analizará tu impacto ambiental con recomendaciones personalizadas.</p>
+
+    <div class="calc-grid">
+      <div class="calc-field">
+        <label>Transporte principal</label>
+        <select id="f-transport">
+          <option value="0">🚶 A pie / bicicleta</option>
+          <option value="1.5">🚌 Transporte público</option>
+          <option value="3">🚗 Auto propio (gasolina)</option>
+          <option value="4.5">✈️ Vuelos frecuentes</option>
+        </select>
+      </div>
+      <div class="calc-field">
+        <label>Dieta</label>
+        <select id="f-diet">
+          <option value="0.5">🌱 Vegana</option>
+          <option value="1.2">🥗 Vegetariana</option>
+          <option value="2.5" selected>🍖 Omnívora (promedio)</option>
+          <option value="3.8">🥩 Alta en carne roja</option>
+        </select>
+      </div>
+      <div class="calc-field">
+        <label>Energía en el hogar</label>
+        <select id="f-energy">
+          <option value="0.2">☀️ Solar / renovable</option>
+          <option value="1.5" selected>⚡ Red eléctrica estándar</option>
+          <option value="2.8">🔥 Gas natural + electricidad</option>
+          <option value="4">🏭 Carbón / no sé</option>
+        </select>
+      </div>
+      <div class="calc-field">
+        <label>Consumo de ropa y productos</label>
+        <select id="f-consume">
+          <option value="0.3">♻️ Mínimo / segunda mano</option>
+          <option value="1.2" selected>👕 Moderado</option>
+          <option value="2.5">🛍️ Frecuente (fast fashion)</option>
+          <option value="4">📦 Muy alto</option>
+        </select>
+      </div>
+      <div class="calc-field">
+        <label>País / región</label>
+        <select id="f-country">
+          <option value="1.2">Chile</option>
+          <option value="1.5">Latinoamérica (promedio)</option>
+          <option value="2.0">Europa</option>
+          <option value="2.8">Estados Unidos</option>
+          <option value="3.2">Australia / Canadá</option>
+          <option value="0.8">África / Asia en desarrollo</option>
+        </select>
+      </div>
+      <div class="calc-field">
+        <label>Residuos / reciclaje</label>
+        <select id="f-waste">
+          <option value="0.1">✅ Composting + reciclaje total</option>
+          <option value="0.6" selected>♻️ Reciclaje parcial</option>
+          <option value="1.2">🗑️ Sin reciclaje</option>
+          <option value="1.8">❌ Mucho desperdicio</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="calcularHuella()" style="width:100%;">Analizar con IA →</button>
+
+    <div class="calc-result" id="calc-result">
+      <div style="display:flex;align-items:flex-end;gap:0.5rem;">
+        <span class="result-number" id="r-tons">0</span>
+        <span style="color:var(--text-dim);font-size:0.9rem;margin-bottom:0.6rem;">toneladas CO₂ / año</span>
+      </div>
+      <p class="result-label" id="r-compare"></p>
+      <div class="result-bar">
+        <div class="result-fill" id="r-fill" style="width:0%;background:var(--green);"></div>
+      </div>
+      <div class="tips-list" id="r-tips"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CHAT IA -->
+<div id="conversar" style="padding:5rem 1.5rem;">
+  <div style="max-width:800px;margin:0 auto;">
+    <p class="section-label">// inteligencia artificial</p>
+    <h2 class="section-title">Habla con <span style="color:var(--green)">Terra IA</span></h2>
+    <p style="color:var(--text-dim);margin-bottom:2rem;max-width:500px;line-height:1.7;">Pregúntale cualquier cosa sobre cambio climático, hábitos sostenibles, datos, o cómo hacer que tu comunidad cambie.</p>
+  </div>
+
+  <div id="chat-section">
+    <div class="chat-wrap">
+      <div class="chat-header">
+        <div class="chat-avatar">🌿</div>
+        <div>
+          <div class="chat-name">Terra IA</div>
+          <div class="chat-status">● EN LÍNEA — POWERED BY CLAUDE</div>
+        </div>
+      </div>
+
+      <div id="chat-messages">
+        <div class="msg ai">
+          <div class="msg-bubble">¡Hola! Soy Terra, tu asistente de IA para el planeta 🌍 Estoy aquí para ayudarte a entender el cambio climático, reducir tu huella de carbono y actuar con propósito. ¿Por dónde empezamos?</div>
+        </div>
+      </div>
+
+      <div class="quick-questions">
+        <button class="quick-q" onclick="sendQuick('¿Cómo reduzco mi huella de carbono en el día a día?')">💡 Tips diarios</button>
+        <button class="quick-q" onclick="sendQuick('¿Cuál es el mayor problema ambiental hoy en Chile?')">🇨🇱 Chile y el clima</button>
+        <button class="quick-q" onclick="sendQuick('¿Cómo convenzo a mi familia de ser más sostenible?')">👨‍👩‍👧 Cambiar hábitos</button>
+        <button class="quick-q" onclick="sendQuick('¿Qué puede hacer una persona sola realmente?')">🙋 Impacto individual</button>
+      </div>
+
+      <div class="chat-input-area">
+        <textarea id="chat-input" rows="1" placeholder="Escríbele a Terra..."></textarea>
+        <button id="send-btn" onclick="sendMessage()">➤</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APRENDER -->
+<section id="aprender">
+  <p class="section-label">// conocimiento</p>
+  <h2 class="section-title">Por qué esto <span style="color:var(--green)">importa ahora</span></h2>
+
+  <div class="globe-wrap">
+    <div class="globe"></div>
+  </div>
+
+  <div class="cards-grid">
+    <div class="info-card">
+      <div class="card-icon">🌡️</div>
+      <div class="card-title">El tiempo se acaba</div>
+      <p class="card-text">La Tierra ya superó 1.5°C de calentamiento promedio. Cada décima que agregamos multiplica eventos climáticos extremos. La IA puede ayudarnos a actuar más rápido y más inteligente.</p>
+    </div>
+    <div class="info-card">
+      <div class="card-icon">🤖</div>
+      <div class="card-title">IA como aliada, no enemiga</div>
+      <p class="card-text">Los modelos de IA pueden analizar patrones de consumo, optimizar redes eléctricas, predecir desastres y personalizar soluciones a escala masiva. Terra es un ejemplo de eso.</p>
+    </div>
+    <div class="info-card">
+      <div class="card-icon">🧍</div>
+      <div class="card-title">El poder individual es real</div>
+      <p class="card-text">Si el 10% de la población mundial reduce su huella a la mitad, el impacto equivale a eliminar las emisiones de toda Europa. Tu decisión de hoy importa más de lo que crees.</p>
+    </div>
+    <div class="info-card">
+      <div class="card-icon">🌱</div>
+      <div class="card-title">Economía circular posible</div>
+      <p class="card-text">El modelo económico lineal (producir → usar → tirar) puede transformarse en circular. Menos residuos, más regeneración. La IA ayuda a diseñar sistemas que se alimentan a sí mismos.</p>
+    </div>
+    <div class="info-card">
+      <div class="card-icon">💧</div>
+      <div class="card-title">El agua, el nuevo oro</div>
+      <p class="card-text">Para 2040, más de 5 mil millones de personas vivirán en zonas de escasez hídrica. La huella hídrica de nuestro consumo es invisible pero enorme. Conocerla es el primer paso.</p>
+    </div>
+    <div class="info-card">
+      <div class="card-icon">🤝</div>
+      <div class="card-title">El cambio es colectivo</div>
+      <p class="card-text">Las acciones individuales son esenciales pero insuficientes solas. Terra IA también ayuda a comunidades, empresas y organizaciones a planificar transiciones sostenibles.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>TERRA — IA para el Planeta &nbsp;·&nbsp; Construido por <span>Vibe Coding Chile</span> &nbsp;·&nbsp; Powered by <span>Claude (Anthropic)</span></div>
+  <div style="margin-top:0.5rem;">La IA más poderosa al servicio de la Tierra 🌿</div>
+</footer>
+
+<script>
+// ─── COUNTER ANIMATION ───
+function animateCounter(id, target, suffix='', duration=2000) {
+  const el = document.getElementById(id);
+  const start = performance.now();
+  const isDecimal = target % 1 !== 0;
+  function tick(now) {
+    const p = Math.min((now - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - p, 4);
+    const val = isDecimal ? (target * ease).toFixed(1) : Math.round(target * ease);
+    el.textContent = val + suffix;
+    if (p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+const observer = new IntersectionObserver((entries) => {
+  if (entries[0].isIntersecting) {
+    animateCounter('s1', 147);
+    animateCounter('s2', 4.7, ' t');
+    animateCounter('s3', 45, '%');
+    animateCounter('s4', 2100);
+    observer.disconnect();
+  }
+}, { threshold: 0.3 });
+observer.observe(document.querySelector('.stats-bar'));
+
+// ─── CALCULADORA ───
+function calcularHuella() {
+  const transport = parseFloat(document.getElementById('f-transport').value);
+  const diet = parseFloat(document.getElementById('f-diet').value);
+  const energy = parseFloat(document.getElementById('f-energy').value);
+  const consume = parseFloat(document.getElementById('f-consume').value);
+  const country = parseFloat(document.getElementById('f-country').value);
+  const waste = parseFloat(document.getElementById('f-waste').value);
+
+  const total = ((transport + diet + energy + consume + waste) * country).toFixed(1);
+  const globalAvg = 4.7;
+  const pct = Math.min((total / 14) * 100, 100);
+
+  const resultDiv = document.getElementById('calc-result');
+  resultDiv.classList.add('visible');
+
+  // Animate number
+  let count = 0;
+  const target = parseFloat(total);
+  const step = target / 40;
+  const interval = setInterval(() => {
+    count = Math.min(count + step, target);
+    document.getElementById('r-tons').textContent = count.toFixed(1);
+    if (count >= target) clearInterval(interval);
+  }, 30);
+
+  // Color fill
+  const fill = document.getElementById('r-fill');
+  setTimeout(() => { fill.style.width = pct + '%'; }, 100);
+  fill.style.background = total < 3 ? '#2dff7e' : total < 6 ? '#f5c542' : '#ff4d4d';
+
+  // Compare text
+  const compare = document.getElementById('r-compare');
+  if (total < globalAvg) {
+    compare.textContent = `✅ Estás por debajo del promedio global (${globalAvg}t). ¡Bien! Aún hay margen.`;
+  } else if (total < globalAvg * 1.5) {
+    compare.textContent = `⚠️ Estás cerca del promedio global (${globalAvg}t). Con ajustes puedes mejorar.`;
+  } else {
+    compare.textContent = `🚨 Tu huella supera significativamente el promedio global (${globalAvg}t). La IA tiene soluciones.`;
+  }
+
+  // Tips
+  const tips = [];
+  if (transport >= 3) tips.push({ icon: '🚗', text: 'Considera combinar el auto con transporte público al menos 2 veces por semana. Reduce hasta 1.2t CO₂/año.' });
+  if (diet >= 2.5) tips.push({ icon: '🥩', text: 'Reducir el consumo de carne roja a 2 veces por semana puede ahorrar hasta 0.8t CO₂/año.' });
+  if (energy >= 2.8) tips.push({ icon: '⚡', text: 'Cambiar a un proveedor de energía renovable es una de las acciones individuales más impactantes.' });
+  if (consume >= 2.5) tips.push({ icon: '🛍️', text: 'El fast fashion es uno de los sectores más contaminantes. Comprar de segunda mano reduce tu huella textil hasta un 70%.' });
+  if (waste >= 1.2) tips.push({ icon: '♻️', text: 'Compostar los residuos orgánicos y reciclar puede reducir 0.5t CO₂ equivalente al año.' });
+  if (tips.length === 0) tips.push({ icon: '🌟', text: '¡Tu perfil es muy sostenible! Comparte tus hábitos con tu comunidad. El ejemplo es la herramienta más poderosa.' });
+
+  const tipsList = document.getElementById('r-tips');
+  tipsList.innerHTML = tips.map(t => `
+    <div class="tip-item">
+      <span class="tip-icon">${t.icon}</span>
+      <span>${t.text}</span>
+    </div>
+  `).join('');
+
+  resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ─── CHAT IA ───
+const chatMessages = document.getElementById('chat-messages');
+const chatInput = document.getElementById('chat-input');
+const sendBtn = document.getElementById('send-btn');
+let conversationHistory = [];
+
+const SYSTEM_PROMPT = `Eres Terra, una IA especializada en medio ambiente, cambio climático y sostenibilidad. Tienes el rol de educar, empoderar y orientar a personas de todo el mundo a reducir su huella de carbono y tomar decisiones más sostenibles.
+
+Tu personalidad:
+- Cálida pero directa. No catastrofista, sino esperanzadora y práctica.
+- Usas datos reales y actualizados (hasta tu fecha de corte).
+- Adaptas el lenguaje según el usuario: coloquial con gente común, técnico con expertos.
+- Siempre terminas con una acción concreta que el usuario puede hacer HOY.
+- Eres especialmente empática con contextos latinoamericanos y chilenos.
+
+Formato de respuesta: párrafos cortos, máximo 3-4 párrafos. Usa emojis con moderación. Sé concisa pero profunda.`;
+
+async function sendMessage() {
+  const text = chatInput.value.trim();
+  if (!text) return;
+  addMessage(text, 'user');
+  chatInput.value = '';
+  sendBtn.disabled = true;
+  conversationHistory.push({ role: 'user', content: text });
+  
+  // Typing indicator
+  const typing = document.createElement('div');
+  typing.className = 'msg ai';
+  typing.id = 'typing';
+  typing.innerHTML = `<div class="msg-bubble typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+  chatMessages.appendChild(typing);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: SYSTEM_PROMPT,
+        messages: conversationHistory
+      })
+    });
+
+    const data = await response.json();
+    const reply = data.content?.map(b => b.text || '').join('') || 'Lo siento, no pude procesar eso.';
+    conversationHistory.push({ role: 'assistant', content: reply });
+    
+    document.getElementById('typing')?.remove();
+    addMessage(reply, 'ai');
+  } catch (err) {
+    document.getElementById('typing')?.remove();
+    addMessage('⚠️ Error de conexión. Verifica que la API esté configurada correctamente.', 'ai');
+  }
+  
+  sendBtn.disabled = false;
+}
+
+function addMessage(text, role) {
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.innerHTML = `<div class="msg-bubble">${text.replace(/\n/g, '<br>')}</div>`;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function sendQuick(q) {
+  chatInput.value = q;
+  sendMessage();
+}
+
+chatInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+</script>
+</body>
+</html>

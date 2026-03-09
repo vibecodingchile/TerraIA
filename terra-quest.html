@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TERRA QUEST — Salva el Planeta Jugando</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #04080a;
+  --surface: #0b1620;
+  --surface2: #112030;
+  --neon: #00f5d4;
+  --neon2: #7fff6e;
+  --amber: #ffcc00;
+  --red: #ff4060;
+  --purple: #bf5fff;
+  --text: #dff5ff;
+  --text-dim: #4a7a8a;
+  --border: rgba(0,245,212,0.1);
+  --border2: rgba(0,245,212,0.2);
+  --glow: 0 0 20px rgba(0,245,212,0.25);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+  cursor: default;
+}
+
+/* SCANLINES OVERLAY */
+body::after {
+  content:'';
+  position: fixed; inset:0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+  pointer-events:none; z-index:999;
+}
+
+/* PARTICLE BG */
+#particles { position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden; }
+.particle {
+  position:absolute; border-radius:50%;
+  background: var(--neon); opacity:0;
+  animation: floatParticle linear infinite;
+}
+@keyframes floatParticle {
+  0% { transform:translateY(100vh) scale(0); opacity:0; }
+  10% { opacity:0.6; }
+  90% { opacity:0.3; }
+  100% { transform:translateY(-10vh) scale(1); opacity:0; }
+}
+
+/* NAV */
+nav {
+  position: fixed; top:0; left:0; right:0; z-index:200;
+  padding: 0.75rem 2rem;
+  display: flex; align-items:center; justify-content:space-between;
+  background: rgba(4,8,10,0.92);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border2);
+}
+.nav-logo {
+  font-family:'Bebas Neue',sans-serif; font-size:1.6rem; letter-spacing:0.1em;
+  color:var(--neon); text-shadow: var(--glow);
+}
+.nav-logo span { color:var(--amber); }
+.nav-score-area { display:flex; align-items:center; gap:1.5rem; }
+.nav-stat {
+  text-align:center;
+  font-family:'DM Mono',monospace; font-size:0.65rem; letter-spacing:0.1em; color:var(--text-dim);
+}
+.nav-stat strong { display:block; font-size:1rem; color:var(--neon); font-family:'Bebas Neue',sans-serif; letter-spacing:0.05em; }
+.nav-back {
+  font-family:'DM Mono',monospace; font-size:0.7rem; letter-spacing:0.1em;
+  color:var(--text-dim); text-decoration:none; border:1px solid var(--border2);
+  padding:0.35rem 0.9rem; border-radius:0.3rem; transition:all 0.2s;
+}
+.nav-back:hover { color:var(--neon); border-color:var(--neon); }
+
+/* MAIN */
+main { padding-top: 70px; position:relative; z-index:1; }
+
+/* ── SCREENS ── */
+.screen { display:none; min-height:calc(100vh - 70px); padding:2rem 1.5rem; }
+.screen.active { display:flex; flex-direction:column; }
+
+/* ── HOME ── */
+#screen-home {
+  align-items:center; justify-content:center; text-align:center;
+}
+.home-badge {
+  font-family:'DM Mono',monospace; font-size:0.68rem; letter-spacing:0.25em;
+  color:var(--neon); border:1px solid rgba(0,245,212,0.3);
+  padding:0.3rem 1rem; border-radius:0.25rem; margin-bottom:1.5rem;
+  background:rgba(0,245,212,0.05); display:inline-block;
+  animation: fadeUp 0.6s ease both;
+}
+#screen-home h1 {
+  font-family:'Bebas Neue',sans-serif; font-size:clamp(4rem,14vw,10rem);
+  line-height:0.9; letter-spacing:0.05em;
+  animation: fadeUp 0.6s 0.1s ease both;
+}
+#screen-home h1 .line2 { color:var(--neon); text-shadow:0 0 40px rgba(0,245,212,0.4); }
+.home-sub {
+  font-size:1rem; color:var(--text-dim); max-width:500px; line-height:1.7;
+  margin:1.5rem auto; animation: fadeUp 0.6s 0.2s ease both;
+}
+
+.modes-grid {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:1rem; max-width:900px; width:100%; margin:2rem auto 0;
+  animation: fadeUp 0.6s 0.3s ease both;
+}
+.mode-card {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius:1rem; padding:1.75rem 1.5rem;
+  cursor:pointer; transition:all 0.25s;
+  text-align:left; position:relative; overflow:hidden;
+}
+.mode-card::before {
+  content:''; position:absolute; inset:0;
+  background: radial-gradient(circle at 80% 20%, var(--card-color, rgba(0,245,212,0.08)), transparent 60%);
+  opacity:0; transition:opacity 0.3s;
+}
+.mode-card:hover { transform:translateY(-6px); border-color:var(--neon); box-shadow: var(--glow); }
+.mode-card:hover::before { opacity:1; }
+.mode-icon { font-size:2.5rem; margin-bottom:0.75rem; display:block; }
+.mode-title { font-family:'Bebas Neue',sans-serif; font-size:1.4rem; letter-spacing:0.05em; margin-bottom:0.25rem; }
+.mode-desc { font-size:0.78rem; color:var(--text-dim); line-height:1.5; }
+.mode-pts { font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--amber); margin-top:0.5rem; }
+
+/* Global Impact Bar */
+.impact-section {
+  max-width:900px; width:100%; margin:2.5rem auto 0;
+  animation: fadeUp 0.6s 0.4s ease both;
+}
+.impact-header { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:0.75rem; }
+.impact-title { font-family:'DM Mono',monospace; font-size:0.68rem; letter-spacing:0.15em; color:var(--neon); text-transform:uppercase; }
+.impact-milestone { font-family:'DM Mono',monospace; font-size:0.68rem; color:var(--amber); }
+
+.impact-bar-wrap { background:var(--surface); border:1px solid var(--border2); border-radius:0.5rem; padding:1.25rem 1.5rem; }
+.global-pts-display { font-family:'Bebas Neue',sans-serif; font-size:3rem; color:var(--neon); text-shadow:var(--glow); line-height:1; }
+.global-pts-lbl { font-size:0.72rem; color:var(--text-dim); font-family:'DM Mono',monospace; margin-bottom:1rem; }
+.big-bar { height:12px; background:rgba(0,245,212,0.08); border-radius:6px; overflow:hidden; position:relative; }
+.big-bar-fill { height:100%; border-radius:6px; background:linear-gradient(90deg,var(--neon),var(--neon2)); transition:width 1.2s cubic-bezier(0.16,1,0.3,1); position:relative; }
+.big-bar-fill::after { content:''; position:absolute; right:0; top:0; bottom:0; width:4px; background:white; border-radius:2px; box-shadow:0 0 10px var(--neon); }
+
+.milestones { display:flex; gap:1rem; margin-top:1rem; flex-wrap:wrap; }
+.milestone-item {
+  flex:1; min-width:160px; padding:0.75rem; background:var(--surface2);
+  border:1px solid var(--border); border-radius:0.5rem; text-align:center;
+}
+.milestone-item.achieved { border-color:var(--neon2); background:rgba(127,255,110,0.05); }
+.milestone-item.achieved .ms-icon { filter:none; }
+.ms-icon { font-size:1.5rem; display:block; margin-bottom:0.25rem; filter:grayscale(1); transition:filter 0.3s; }
+.ms-pts { font-family:'DM Mono',monospace; font-size:0.62rem; color:var(--amber); }
+.ms-action { font-size:0.72rem; color:var(--text-dim); margin-top:0.2rem; line-height:1.4; }
+
+/* ── QUIZ MODE ── */
+#screen-quiz { max-width:700px; margin:0 auto; width:100%; }
+
+.quiz-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
+.quiz-prog { font-family:'DM Mono',monospace; font-size:0.75rem; color:var(--text-dim); }
+.quiz-prog span { color:var(--neon); }
+.quiz-lives { display:flex; gap:0.3rem; }
+.heart { font-size:1rem; transition:all 0.3s; }
+.heart.lost { filter:grayscale(1); opacity:0.3; transform:scale(0.8); }
+
+.quiz-climate-badge {
+  font-family:'DM Mono',monospace; font-size:0.68rem; letter-spacing:0.15em;
+  padding:0.3rem 0.9rem; border-radius:0.25rem; margin-bottom:1rem;
+  display:inline-block; text-transform:uppercase;
+}
+
+.quiz-question {
+  font-family:'Bebas Neue',sans-serif; font-size:clamp(1.5rem,4vw,2.5rem);
+  line-height:1.2; margin-bottom:0.75rem; letter-spacing:0.03em;
+}
+
+.quiz-animal-display {
+  font-size:5rem; text-align:center; margin:1rem 0;
+  animation: bounceIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes bounceIn { from{transform:scale(0.3) rotate(-10deg);opacity:0} to{transform:scale(1) rotate(0deg);opacity:1} }
+
+.quiz-options { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-top:1.5rem; }
+
+.quiz-opt {
+  background: var(--surface); border:1px solid var(--border2);
+  border-radius:0.75rem; padding:1rem 1.25rem;
+  cursor:pointer; font-size:0.9rem; font-weight:600;
+  transition:all 0.2s; text-align:left; color:var(--text);
+  position:relative; overflow:hidden;
+}
+.quiz-opt::before { content:''; position:absolute; inset:0; background:var(--neon); opacity:0; transition:opacity 0.2s; }
+.quiz-opt:hover:not(:disabled) { border-color:var(--neon); transform:translateY(-2px); box-shadow:var(--glow); }
+.quiz-opt.correct { border-color:var(--neon2); background:rgba(127,255,110,0.1); animation:correctPulse 0.4s ease; }
+.quiz-opt.wrong { border-color:var(--red); background:rgba(255,64,96,0.1); animation:shake 0.4s ease; }
+.quiz-opt:disabled { cursor:not-allowed; }
+
+@keyframes correctPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.03)} }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+
+.quiz-feedback {
+  margin-top:1.25rem; padding:1rem 1.25rem;
+  border-radius:0.75rem; font-size:0.88rem; line-height:1.6;
+  display:none; animation: fadeUp 0.3s ease;
+}
+.quiz-feedback.show { display:block; }
+.quiz-feedback.correct-fb { background:rgba(127,255,110,0.08); border:1px solid rgba(127,255,110,0.3); }
+.quiz-feedback.wrong-fb { background:rgba(255,64,96,0.08); border:1px solid rgba(255,64,96,0.3); }
+
+.quiz-next-btn {
+  margin-top:1rem; background:var(--neon); color:#04080a;
+  border:none; padding:0.9rem 2rem; border-radius:0.5rem;
+  font-family:'Bebas Neue',sans-serif; font-size:1.2rem; letter-spacing:0.1em;
+  cursor:pointer; transition:all 0.2s; width:100%; display:none;
+}
+.quiz-next-btn.show { display:block; }
+.quiz-next-btn:hover { box-shadow:var(--glow); transform:translateY(-2px); }
+
+.quiz-score-anim {
+  position:fixed; pointer-events:none; z-index:500;
+  font-family:'Bebas Neue',sans-serif; font-size:2rem; color:var(--neon);
+  text-shadow:var(--glow); animation:scoreFloat 1.2s ease forwards;
+}
+@keyframes scoreFloat { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-80px) scale(1.4)} }
+
+/* ── MATCH MODE ── */
+#screen-match { max-width:800px; margin:0 auto; width:100%; }
+
+.match-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:0.75rem; margin-top:1.5rem; }
+@media(max-width:500px) { .match-grid { grid-template-columns:repeat(3,1fr); } }
+
+.match-card {
+  aspect-ratio:1; background:var(--surface);
+  border:2px solid var(--border2); border-radius:0.75rem;
+  display:flex; align-items:center; justify-content:center;
+  font-size:2rem; cursor:pointer; transition:all 0.3s;
+  position:relative; user-select:none;
+}
+.match-card .card-front { display:none; flex-direction:column; align-items:center; gap:0.2rem; }
+.match-card .card-back { font-size:2rem; }
+.match-card.flipped .card-front { display:flex; }
+.match-card.flipped .card-back { display:none; }
+.match-card.flipped { border-color:var(--neon); background:var(--surface2); }
+.match-card.matched { border-color:var(--neon2); background:rgba(127,255,110,0.08); animation:matchedPulse 0.5s ease; pointer-events:none; }
+@keyframes matchedPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+.match-card:hover:not(.matched) { transform:scale(1.04); border-color:rgba(0,245,212,0.5); }
+.match-card-name { font-size:0.55rem; font-family:'DM Mono',monospace; color:var(--text-dim); text-align:center; line-height:1.2; }
+
+.match-timer { font-family:'Bebas Neue',sans-serif; font-size:2rem; color:var(--amber); text-shadow:0 0 20px rgba(255,204,0,0.4); }
+
+/* ── SORT MODE ── */
+#screen-sort { max-width:700px; margin:0 auto; width:100%; }
+
+.sort-target {
+  background:var(--surface); border:2px dashed var(--border2);
+  border-radius:1rem; padding:1.5rem; min-height:100px;
+  display:flex; flex-wrap:wrap; gap:0.5rem; align-items:flex-start;
+  transition:border-color 0.2s;
+}
+.sort-target.drag-over { border-color:var(--neon); background:rgba(0,245,212,0.04); }
+.sort-targets-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin:1.5rem 0; }
+.sort-label { font-family:'DM Mono',monospace; font-size:0.65rem; letter-spacing:0.1em; color:var(--neon); margin-bottom:0.5rem; text-transform:uppercase; }
+
+.sort-items { display:flex; flex-wrap:wrap; gap:0.6rem; margin:1.5rem 0; }
+.sort-item {
+  padding:0.6rem 1rem; background:var(--surface2);
+  border:1px solid var(--border2); border-radius:2rem;
+  cursor:grab; font-size:0.88rem; transition:all 0.2s;
+  user-select:none; display:flex; align-items:center; gap:0.4rem;
+}
+.sort-item:hover { border-color:var(--neon); transform:scale(1.04); }
+.sort-item.dragging { opacity:0.4; cursor:grabbing; }
+.sort-item.correct-sort { border-color:var(--neon2); background:rgba(127,255,110,0.1); }
+.sort-item.wrong-sort { border-color:var(--red); background:rgba(255,64,96,0.1); }
+
+/* ── RESULTS ── */
+#screen-results {
+  align-items:center; justify-content:center; text-align:center;
+}
+.results-icon { font-size:5rem; margin-bottom:1rem; animation:bounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+.results-title { font-family:'Bebas Neue',sans-serif; font-size:clamp(2.5rem,8vw,5rem); letter-spacing:0.05em; }
+.results-pts { font-family:'Bebas Neue',sans-serif; font-size:clamp(3rem,10vw,6rem); color:var(--neon); text-shadow:var(--glow); line-height:1; }
+.results-breakdown { display:flex; gap:1rem; flex-wrap:wrap; justify-content:center; margin:1.5rem 0; }
+.rb-item { background:var(--surface); border:1px solid var(--border2); border-radius:0.75rem; padding:0.75rem 1.25rem; text-align:center; }
+.rb-val { font-family:'Bebas Neue',sans-serif; font-size:1.8rem; color:var(--amber); display:block; }
+.rb-lbl { font-size:0.68rem; font-family:'DM Mono',monospace; color:var(--text-dim); text-transform:uppercase; }
+.results-btns { display:flex; gap:1rem; flex-wrap:wrap; justify-content:center; margin-top:1.5rem; }
+.btn-play-again { background:var(--neon); color:#04080a; border:none; padding:1rem 2.5rem; border-radius:0.5rem; font-family:'Bebas Neue',sans-serif; font-size:1.3rem; letter-spacing:0.1em; cursor:pointer; transition:all 0.2s; }
+.btn-play-again:hover { box-shadow:var(--glow); transform:translateY(-3px); }
+.btn-home-again { background:transparent; color:var(--text-dim); border:1px solid var(--border2); padding:1rem 2rem; border-radius:0.5rem; font-family:'Bebas Neue',sans-serif; font-size:1.1rem; letter-spacing:0.1em; cursor:pointer; transition:all 0.2s; }
+.btn-home-again:hover { border-color:var(--neon); color:var(--neon); }
+
+/* IMPACT CARD */
+.impact-card {
+  background:linear-gradient(135deg,rgba(0,245,212,0.08),rgba(127,255,110,0.05));
+  border:1px solid rgba(0,245,212,0.3); border-radius:1rem;
+  padding:1.5rem 2rem; max-width:480px; margin:1.5rem auto 0;
+}
+.impact-card h3 { font-family:'Bebas Neue',sans-serif; font-size:1.4rem; letter-spacing:0.08em; color:var(--neon); margin-bottom:0.5rem; }
+.impact-card p { font-size:0.82rem; color:var(--text-dim); line-height:1.6; }
+
+/* PROGRESS BAR INLINE */
+.pts-bar-wrap { max-width:480px; width:100%; margin:1rem auto; }
+.pts-bar-track { height:6px; background:var(--surface2); border-radius:3px; overflow:hidden; }
+.pts-bar-fill { height:100%; background:linear-gradient(90deg,var(--neon),var(--neon2)); border-radius:3px; transition:width 1s cubic-bezier(0.16,1,0.3,1); }
+.pts-bar-labels { display:flex; justify-content:space-between; font-family:'DM Mono',monospace; font-size:0.62rem; color:var(--text-dim); margin-top:0.3rem; }
+
+/* UTILS */
+@keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+.neon-text { color:var(--neon); text-shadow:var(--glow); }
+.amber-text { color:var(--amber); }
+
+.mode-timer-bar { height:4px; background:var(--border); border-radius:2px; overflow:hidden; margin-bottom:1.5rem; }
+.mode-timer-fill { height:100%; background:var(--neon); border-radius:2px; transition:width 0.1s linear; }
+
+/* TOAST */
+.toast {
+  position:fixed; bottom:2rem; left:50%; transform:translateX(-50%) translateY(80px);
+  background:var(--surface2); border:1px solid var(--neon);
+  padding:0.75rem 1.5rem; border-radius:2rem;
+  font-family:'DM Mono',monospace; font-size:0.8rem; color:var(--neon);
+  z-index:600; transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  white-space:nowrap; box-shadow:var(--glow);
+}
+.toast.show { transform:translateX(-50%) translateY(0); }
+
+/* LEADERBOARD */
+.rank-list { list-style:none; max-width:480px; margin:0 auto; }
+.rank-item { display:flex; align-items:center; gap:1rem; padding:0.75rem 1rem; border-bottom:1px solid var(--border); }
+.rank-pos { font-family:'Bebas Neue',sans-serif; font-size:1.5rem; color:var(--text-dim); width:2rem; text-align:center; }
+.rank-pos.top { color:var(--amber); }
+.rank-name { flex:1; font-size:0.9rem; }
+.rank-pts { font-family:'DM Mono',monospace; font-size:0.8rem; color:var(--neon); }
+
+/* RESPONSIVE */
+@media(max-width:600px) {
+  .quiz-options { grid-template-columns:1fr; }
+  .sort-targets-grid { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<div id="particles"></div>
+
+<nav>
+  <div class="nav-logo">TERRA <span>QUEST</span></div>
+  <div class="nav-score-area">
+    <div class="nav-stat">
+      <strong id="nav-pts">0</strong>
+      MIS PUNTOS
+    </div>
+    <div class="nav-stat">
+      <strong id="nav-global">247.580</strong>
+      GLOBAL
+    </div>
+    <a href="terra-ai.html" class="nav-back">← TERRA</a>
+  </div>
+</nav>
+
+<main>
+
+<!-- ════════════ HOME ════════════ -->
+<div class="screen active" id="screen-home">
+  <div class="home-badge">🌍 MISIONES DE BIODIVERSIDAD</div>
+  <h1>
+    <div>SALVA EL</div>
+    <div class="line2">PLANETA</div>
+  </h1>
+  <p class="home-sub">Juega, aprende sobre fauna y flora del mundo, acumula puntos y activa donaciones reales de empresas comprometidas con el planeta.</p>
+
+  <div class="modes-grid">
+    <div class="mode-card" style="--card-color:rgba(0,245,212,0.1)" onclick="startQuiz()">
+      <span class="mode-icon">🔬</span>
+      <div class="mode-title">Quiz Salvaje</div>
+      <p class="mode-desc">¿Reconoces las especies de cada bioma? Responde 10 preguntas y demuestra tu conocimiento.</p>
+      <div class="mode-pts">+50–200 pts por ronda</div>
+    </div>
+    <div class="mode-card" style="--card-color:rgba(255,204,0,0.1)" onclick="startMatch()">
+      <span class="mode-icon">🃏</span>
+      <div class="mode-title">Memory Biomas</div>
+      <p class="mode-desc">Empareja animales con su ecosistema antes que se acabe el tiempo. Velocidad y memoria.</p>
+      <div class="mode-pts">+100–300 pts por ronda</div>
+    </div>
+    <div class="mode-card" style="--card-color:rgba(191,95,255,0.1)" onclick="startSort()">
+      <span class="mode-icon">🔀</span>
+      <div class="mode-title">Clasifica Especies</div>
+      <p class="mode-desc">Arrastra fauna y flora a su bioma correcto. Cuanto más rápido, más puntos.</p>
+      <div class="mode-pts">+80–250 pts por ronda</div>
+    </div>
+    <div class="mode-card" style="--card-color:rgba(127,255,110,0.1)" onclick="showScreen('screen-leaderboard')">
+      <span class="mode-icon">🏆</span>
+      <div class="mode-title">Tabla Global</div>
+      <p class="mode-desc">Ve cómo te comparas con jugadores de todo el mundo. El impacto es colectivo.</p>
+      <div class="mode-pts">Ver ranking mundial</div>
+    </div>
+  </div>
+
+  <div class="impact-section">
+    <div class="impact-header">
+      <div class="impact-title">// Impacto Colectivo Global</div>
+      <div class="impact-milestone">Próxima meta: <span class="amber-text">500.000 pts</span></div>
+    </div>
+    <div class="impact-bar-wrap">
+      <div class="impact-bar-wrap" style="margin:0">
+        <div class="global-pts-display" id="global-counter">247.580</div>
+        <div class="global-pts-lbl">PUNTOS ACUMULADOS POR LA COMUNIDAD TERRA</div>
+        <div class="big-bar">
+          <div class="big-bar-fill" id="global-bar" style="width:49.5%"></div>
+        </div>
+        <div class="milestones" style="margin-top:1rem">
+          <div class="milestone-item achieved">
+            <span class="ms-icon">🌱</span>
+            <div class="ms-pts">100.000 pts ✓</div>
+            <div class="ms-action">Ecosia plantó 500 árboles en Chile</div>
+          </div>
+          <div class="milestone-item achieved">
+            <span class="ms-icon">💧</span>
+            <div class="ms-pts">200.000 pts ✓</div>
+            <div class="ms-action">Patagonia donó filtros de agua × 200 familias</div>
+          </div>
+          <div class="milestone-item">
+            <span class="ms-icon">🌊</span>
+            <div class="ms-pts">500.000 pts</div>
+            <div class="ms-action">Empresa socia limpiará 10 km de costa</div>
+          </div>
+          <div class="milestone-item">
+            <span class="ms-icon">☀️</span>
+            <div class="ms-pts">1.000.000 pts</div>
+            <div class="ms-action">Paneles solares para escuelas rurales</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ QUIZ ════════════ -->
+<div class="screen" id="screen-quiz">
+  <div class="mode-timer-bar"><div class="mode-timer-fill" id="quiz-timer-bar" style="width:100%"></div></div>
+  <div class="quiz-header">
+    <div class="quiz-prog">PREGUNTA <span id="q-num">1</span>/10</div>
+    <div class="quiz-lives" id="quiz-lives"></div>
+    <div style="font-family:'Bebas Neue';font-size:1.2rem;color:var(--amber)" id="q-streak"></div>
+  </div>
+  <div id="quiz-climate-badge" class="quiz-climate-badge"></div>
+  <div id="quiz-animal-display" class="quiz-animal-display"></div>
+  <div id="quiz-question" class="quiz-question"></div>
+  <div id="quiz-options" class="quiz-options"></div>
+  <div id="quiz-feedback" class="quiz-feedback"></div>
+  <button class="quiz-next-btn" id="quiz-next" onclick="nextQuestion()">SIGUIENTE →</button>
+</div>
+
+<!-- ════════════ MATCH ════════════ -->
+<div class="screen" id="screen-match">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+    <div>
+      <p style="font-family:'DM Mono',monospace;font-size:0.65rem;letter-spacing:0.15em;color:var(--neon);text-transform:uppercase;">// Memory Biomas</p>
+      <h2 style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:0.05em;">Empareja la especie con su bioma</h2>
+    </div>
+    <div style="text-align:right">
+      <div class="match-timer" id="match-timer">60</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--text-dim)">SEGUNDOS</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:1.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+    <div style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--text-dim)">Pares: <span class="neon-text" id="match-pairs">0</span>/8</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--text-dim)">Intentos: <span id="match-tries">0</span></div>
+  </div>
+  <div class="mode-timer-bar"><div class="mode-timer-fill" id="match-timer-bar" style="width:100%"></div></div>
+  <div class="match-grid" id="match-grid"></div>
+</div>
+
+<!-- ════════════ SORT ════════════ -->
+<div class="screen" id="screen-sort">
+  <div style="margin-bottom:1rem;">
+    <p style="font-family:'DM Mono',monospace;font-size:0.65rem;letter-spacing:0.15em;color:var(--neon);text-transform:uppercase;margin-bottom:0.25rem;">// Clasifica Especies</p>
+    <h2 style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:0.05em;" id="sort-title"></h2>
+    <p style="color:var(--text-dim);font-size:0.82rem;margin-top:0.25rem;">Arrastra cada especie al bioma correcto.</p>
+  </div>
+  <div class="mode-timer-bar"><div class="mode-timer-fill" id="sort-timer-bar" style="width:100%"></div></div>
+  <div class="sort-items" id="sort-items"></div>
+  <div class="sort-targets-grid" id="sort-targets"></div>
+  <button class="quiz-next-btn" id="sort-check" onclick="checkSort()" style="display:none">VERIFICAR →</button>
+</div>
+
+<!-- ════════════ LEADERBOARD ════════════ -->
+<div class="screen" id="screen-leaderboard" style="max-width:600px;margin:0 auto">
+  <div style="margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <p style="font-family:'DM Mono',monospace;font-size:0.65rem;letter-spacing:0.15em;color:var(--neon);text-transform:uppercase;margin-bottom:0.25rem">// Ranking Mundial</p>
+      <h2 style="font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:0.05em">Tabla de Honor</h2>
+    </div>
+    <button onclick="showScreen('screen-home')" style="background:transparent;border:1px solid var(--border2);color:var(--text-dim);padding:0.5rem 1rem;border-radius:0.4rem;cursor:pointer;font-family:'DM Mono',monospace;font-size:0.72rem;transition:all 0.2s" onmouseover="this.style.borderColor='var(--neon)';this.style.color='var(--neon)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text-dim)'">← VOLVER</button>
+  </div>
+  <ul class="rank-list" id="rank-list"></ul>
+</div>
+
+<!-- ════════════ RESULTS ════════════ -->
+<div class="screen" id="screen-results">
+  <div id="results-icon" class="results-icon">🏆</div>
+  <div id="results-title" class="results-title"></div>
+  <div id="results-pts" class="results-pts"></div>
+  <p style="color:var(--text-dim);font-size:0.85rem;margin-top:0.5rem">puntos ganados esta ronda</p>
+
+  <div class="pts-bar-wrap">
+    <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;">
+      <span style="font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--text-dim)">Progreso global</span>
+      <span style="font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--amber)" id="r-next-milestone">Próxima meta</span>
+    </div>
+    <div class="pts-bar-track"><div class="pts-bar-fill" id="r-bar" style="width:0%"></div></div>
+    <div class="pts-bar-labels"><span id="r-bar-l">0</span><span id="r-bar-r">500.000</span></div>
+  </div>
+
+  <div class="results-breakdown">
+    <div class="rb-item"><span class="rb-val" id="r-correct">0</span><span class="rb-lbl">Correctas</span></div>
+    <div class="rb-item"><span class="rb-val" id="r-streak">0</span><span class="rb-lbl">Racha max</span></div>
+    <div class="rb-item"><span class="rb-val" id="r-bonus">0</span><span class="rb-lbl">Bonus</span></div>
+    <div class="rb-item"><span class="rb-val" id="r-total-pts">0</span><span class="rb-lbl">Total mío</span></div>
+  </div>
+
+  <div class="impact-card">
+    <h3>🌱 Tu Impacto Real</h3>
+    <p id="impact-msg">Cada punto que ganas acerca a la comunidad TERRA a la próxima donación corporativa. Empresas con programas de responsabilidad ambiental esperan tu puntaje para actuar.</p>
+  </div>
+
+  <div class="results-btns">
+    <button class="btn-play-again" onclick="showScreen('screen-home')">JUGAR DE NUEVO</button>
+    <button class="btn-home-again" onclick="window.location.href='terra-ai.html'">IR A TERRA IA</button>
+  </div>
+</div>
+
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════
+// PARTICLES
+// ══════════════════════════════════════
+const pContainer = document.getElementById('particles');
+for(let i=0; i<25; i++){
+  const p = document.createElement('div');
+  p.className = 'particle';
+  const size = Math.random()*3+1;
+  p.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;animation-duration:${Math.random()*15+8}s;animation-delay:${Math.random()*10}s;`;
+  pContainer.appendChild(p);
+}
+
+// ══════════════════════════════════════
+// GAME DATA
+// ══════════════════════════════════════
+const BIOMES = {
+  selva:     { name:'Selva Tropical', color:'#1db954', emoji:'🌴' },
+  sabana:    { name:'Sabana',         color:'#8bc34a', emoji:'🦁' },
+  desierto:  { name:'Desierto',       color:'#e6a817', emoji:'🌵' },
+  oceano:    { name:'Océano',         color:'#0288d1', emoji:'🌊' },
+  montaña:   { name:'Montaña',        color:'#8d6e63', emoji:'🏔️' },
+  boreal:    { name:'Boreal/Taiga',   color:'#1565a0', emoji:'🌲' },
+  tundra:    { name:'Tundra/Polar',   color:'#78909c', emoji:'🧊' },
+  templado:  { name:'Templado',       color:'#4caf7d', emoji:'🍂' },
+  sabana2:   { name:'Sabana',         color:'#8bc34a', emoji:'🦁' },
+};
+
+const SPECIES = [
+  // SELVA
+  { emoji:'🦜', name:'Guacamayo', biome:'selva', fact:'Puede vivir 80 años y vuela a 80 km/h.' },
+  { emoji:'🐆', name:'Jaguar', biome:'selva', fact:'Es el felino más grande de América. Nada perfectamente.' },
+  { emoji:'🦋', name:'Morpho azul', biome:'selva', fact:'Sus alas brillan sin pigmento: es solo difracción de luz.' },
+  { emoji:'🦥', name:'Perezoso', biome:'selva', fact:'Duerme 20 horas y desciende al suelo solo 1 vez por semana.' },
+  { emoji:'🐍', name:'Anaconda', biome:'selva', fact:'La serpiente más pesada del mundo. Puede medir 9 metros.' },
+  { emoji:'🐸', name:'Rana dardo', biome:'selva', fact:'Es venenosa para disuadir a sus depredadores.' },
+  // SABANA
+  { emoji:'🦁', name:'León', biome:'sabana', fact:'Único felino social. Las leonas cazan en grupo coordinado.' },
+  { emoji:'🦒', name:'Jirafa', biome:'sabana', fact:'Su corazón pesa 12 kg para bombear sangre hasta el cerebro.' },
+  { emoji:'🐘', name:'Elefante africano', biome:'sabana', fact:'Puede reconocerse en el espejo y llora a sus muertos.' },
+  { emoji:'🦓', name:'Cebra', biome:'sabana', fact:'Cada cebra tiene rayas únicas como huellas digitales.' },
+  { emoji:'🦏', name:'Rinoceronte', biome:'sabana', fact:'Su cuerno es queratina pura, igual que tus uñas.' },
+  // DESIERTO
+  { emoji:'🦂', name:'Escorpión', biome:'desierto', fact:'Fluorece bajo luz UV y puede vivir sin comer un año.' },
+  { emoji:'🐪', name:'Camello', biome:'desierto', fact:'Almacena grasa (no agua) en sus jorobas como energía.' },
+  { emoji:'🦎', name:'Lagarto crestado', biome:'desierto', fact:'Puede correr sobre el agua durante metros.' },
+  { emoji:'🐍', name:'Serpiente cornuda', biome:'desierto', fact:'Se desplaza en diagonal para no hundirse en la arena.' },
+  // OCEANO
+  { emoji:'🐋', name:'Ballena azul', biome:'oceano', fact:'El animal más grande que ha existido en la Tierra.' },
+  { emoji:'🦑', name:'Calamar gigante', biome:'oceano', fact:'Tiene ojos del tamaño de un balón de fútbol.' },
+  { emoji:'🐬', name:'Delfín nariz de botella', biome:'oceano', fact:'Se llaman entre sí por nombre único de silbido.' },
+  { emoji:'🦈', name:'Tiburón blanco', biome:'oceano', fact:'Puede detectar 1 gota de sangre en 100 litros de agua.' },
+  // MONTAÑA
+  { emoji:'🦙', name:'Vicuña', biome:'montaña', fact:'Su lana es la fibra natural más fina del planeta.' },
+  { emoji:'🦅', name:'Cóndor andino', biome:'montaña', fact:'Puede planear 5 horas sin mover las alas.' },
+  { emoji:'🐆', name:'Leopardo de nieves', biome:'montaña', fact:'Nunca ruge. Usa su enorme cola como manta.' },
+  { emoji:'🦌', name:'Taruka', biome:'montaña', fact:'Ciervo endémico de los Andes. En peligro de extinción.' },
+  // BOREAL
+  { emoji:'🐺', name:'Lobo siberiano', biome:'boreal', fact:'Puede recorrer 200 km en una sola noche de caza.' },
+  { emoji:'🐻', name:'Oso pardo', biome:'boreal', fact:'Su corazón baja a 8 latidos/min durante el letargo.' },
+  { emoji:'🦅', name:'Águila pescadora', biome:'boreal', fact:'Gira el pez para llevarlo aerodinámicamente.' },
+  // TUNDRA
+  { emoji:'🐻‍❄️', name:'Oso polar', biome:'tundra', fact:'Su pelo es transparente, no blanco. Refleja la luz.' },
+  { emoji:'🦌', name:'Reno', biome:'tundra', fact:'Único cérvido donde tanto macho como hembra tienen cuernos.' },
+  { emoji:'🦊', name:'Zorro ártico', biome:'tundra', fact:'Cambia de blanco en invierno a marrón en verano.' },
+  // TEMPLADO
+  { emoji:'🦊', name:'Zorro rojo', biome:'templado', fact:'Puede saltar 2 metros de altura y se orienta con el campo magnético.' },
+  { emoji:'🦌', name:'Ciervo rojo', biome:'templado', fact:'Sus cuernos son el tejido de más rápido crecimiento animal.' },
+  { emoji:'🐿️', name:'Ardilla voladora', biome:'templado', fact:'Puede planear 90 metros entre árboles.' },
+];
+
+const QUIZ_QUESTIONS = [
+  {
+    type: 'identify_biome',
+    template: (s) => `¿En qué bioma vive el ${s.name}?`,
+    getAnswer: (s) => s.biome,
+    getOptions: (s, all) => shuffleArr([s.biome, ...pickRandom(Object.keys(BIOMES).filter(b=>b!==s.biome), 3)]),
+    renderOption: (b) => `${BIOMES[b]?.emoji||'?'} ${BIOMES[b]?.name||b}`,
+  },
+  {
+    type: 'identify_species',
+    template: (s) => `¿Qué especie es este animal del bioma ${BIOMES[s.biome]?.name}?`,
+    getAnswer: (s) => s.name,
+    getOptions: (s, all) => shuffleArr([s.name, ...pickRandom(all.filter(x=>x.name!==s.name).map(x=>x.name), 3)]),
+    renderOption: (n) => n,
+  },
+  {
+    type: 'fact',
+    template: (s) => `¿Cuál hecho describe al ${s.name} (${BIOMES[s.biome]?.emoji})?`,
+    getAnswer: (s) => s.fact,
+    getOptions: (s, all) => shuffleArr([s.fact, ...pickRandom(all.filter(x=>x.name!==s.name).map(x=>x.fact), 3)]),
+    renderOption: (f) => f,
+  }
+];
+
+// ══════════════════════════════════════
+// STATE
+// ══════════════════════════════════════
+let myPoints = 0;
+let globalPoints = 247580;
+let currentScreen = 'screen-home';
+let qIndex = 0, qList = [], lives = 3, streak = 0, maxStreak = 0, correctCount = 0, roundPts = 0;
+let quizTimer = null, matchTimer = null, sortTimer = null;
+let roundBonus = 0;
+
+// ══════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════
+function shuffleArr(a){ return [...a].sort(()=>Math.random()-0.5); }
+function pickRandom(arr, n){ return shuffleArr(arr).slice(0,n); }
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  currentScreen = id;
+}
+function showToast(msg, dur=2500){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), dur);
+}
+function addPoints(pts, x, y){
+  myPoints += pts; globalPoints += pts;
+  document.getElementById('nav-pts').textContent = myPoints.toLocaleString('es-CL');
+  document.getElementById('nav-global').textContent = globalPoints.toLocaleString('es-CL');
+  // floating score
+  const el = document.createElement('div');
+  el.className = 'quiz-score-anim';
+  el.textContent = '+'+pts;
+  el.style.left = (x||window.innerWidth/2) + 'px';
+  el.style.top = (y||window.innerHeight/2) + 'px';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 1200);
+}
+
+// ══════════════════════════════════════
+// LEADERBOARD
+// ══════════════════════════════════════
+const FAKE_LEADERS = [
+  {name:'🇨🇱 rapcl', pts:12400},
+  {name:'🇧🇷 terra_fan', pts:9870},
+  {name:'🇲🇽 verde_mex', pts:8230},
+  {name:'🇨🇴 bioamor', pts:7650},
+  {name:'🇦🇷 pampa_free', pts:6900},
+  {name:'🌍 eco_warrior', pts:5420},
+  {name:'🇵🇪 andes_kid', pts:4800},
+  {name:'🇨🇱 vibe_chl', pts:3900},
+  {name:'🌱 planta_vida', pts:2750},
+  {name:'🇯🇵 green_jp', pts:1900},
+];
+function buildLeaderboard(){
+  const list = document.getElementById('rank-list');
+  const all = [{name:'⭐ TÚ', pts:myPoints}, ...FAKE_LEADERS].sort((a,b)=>b.pts-a.pts);
+  list.innerHTML = all.slice(0,10).map((p,i)=>`
+    <li class="rank-item">
+      <span class="rank-pos ${i<3?'top':''}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</span>
+      <span class="rank-name">${p.name}</span>
+      <span class="rank-pts">${p.pts.toLocaleString('es-CL')} pts</span>
+    </li>
+  `).join('');
+}
+document.getElementById('screen-leaderboard').addEventListener('click',()=>buildLeaderboard(), {once:false});
+
+// ══════════════════════════════════════
+// QUIZ MODE
+// ══════════════════════════════════════
+function startQuiz(){
+  qList = shuffleArr(SPECIES).slice(0,10);
+  qIndex = 0; lives = 3; streak = 0; maxStreak = 0; correctCount = 0; roundPts = 0; roundBonus = 0;
+  renderLives();
+  showScreen('screen-quiz');
+  renderQuestion();
+}
+
+function renderLives(){
+  const el = document.getElementById('quiz-lives');
+  el.innerHTML = Array.from({length:3},(_,i)=>`<span class="heart${i>=lives?' lost':''}">❤️</span>`).join('');
+}
+
+let qTimerInterval = null, qTimeLeft = 20;
+function renderQuestion(){
+  const s = qList[qIndex];
+  const qType = QUIZ_QUESTIONS[Math.floor(Math.random()*3)];
+  const b = BIOMES[s.biome];
+
+  document.getElementById('q-num').textContent = qIndex+1;
+  document.getElementById('q-streak').textContent = streak>1 ? `🔥 x${streak}` : '';
+  document.getElementById('quiz-climate-badge').textContent = `${b?.emoji||''} ${b?.name||s.biome}`;
+  document.getElementById('quiz-climate-badge').style.cssText = `background:${b?.color||'#333'}22;color:${b?.color||'#fff'};border:1px solid ${b?.color||'#333'}55;`;
+  document.getElementById('quiz-animal-display').textContent = s.emoji;
+  document.getElementById('quiz-question').textContent = qType.template(s);
+  document.getElementById('quiz-feedback').className = 'quiz-feedback';
+  document.getElementById('quiz-next').classList.remove('show');
+
+  const options = qType.getOptions(s, SPECIES);
+  const correctAns = qType.getAnswer(s);
+
+  document.getElementById('quiz-options').innerHTML = options.map(opt=>`
+    <button class="quiz-opt" onclick="answerQuiz(this,'${opt.replace(/'/g,"\\'")}','${correctAns.replace(/'/g,"\\'")}','${s.fact.replace(/'/g,"\\'")}')">${qType.renderOption(opt)}</button>
+  `).join('');
+
+  // Timer
+  qTimeLeft = 20;
+  clearInterval(qTimerInterval);
+  qTimerInterval = setInterval(()=>{
+    qTimeLeft--;
+    document.getElementById('quiz-timer-bar').style.width = (qTimeLeft/20*100)+'%';
+    document.getElementById('quiz-timer-bar').style.background = qTimeLeft>10?'var(--neon)':qTimeLeft>5?'var(--amber)':'var(--red)';
+    if(qTimeLeft<=0){ clearInterval(qTimerInterval); timeOutQuestion(); }
+  },1000);
+}
+
+function timeOutQuestion(){
+  document.querySelectorAll('.quiz-opt').forEach(b=>b.disabled=true);
+  streak=0;
+  showFeedback(false,'⏱️ ¡Se acabó el tiempo! Siguiente pregunta...');
+  if(lives>1){ lives--; renderLives(); document.getElementById('quiz-next').classList.add('show'); }
+  else { lives=0; renderLives(); setTimeout(endQuiz,1500); }
+}
+
+function answerQuiz(btn, answer, correct, fact){
+  clearInterval(qTimerInterval);
+  document.querySelectorAll('.quiz-opt').forEach(b=>b.disabled=true);
+  const isCorrect = answer === correct;
+  if(isCorrect){
+    streak++; maxStreak=Math.max(maxStreak,streak); correctCount++;
+    const bonus = streak>1 ? streak*5 : 0;
+    const timebonus = Math.floor(qTimeLeft*2);
+    const pts = 50 + bonus + timebonus;
+    roundPts += pts; roundBonus += bonus;
+    btn.classList.add('correct');
+    addPoints(pts, btn.getBoundingClientRect().x, btn.getBoundingClientRect().y);
+    showFeedback(true, `✅ ¡Correcto! ${streak>1?`🔥 Racha x${streak}! +${bonus} bonus`:''}<br><small>${fact}</small>`);
+  } else {
+    streak=0; lives--;
+    btn.classList.add('wrong');
+    renderLives();
+    showFeedback(false, `❌ Era: <strong>${correct}</strong><br><small>${fact}</small>`);
+    if(lives<=0){ setTimeout(endQuiz,1800); return; }
+  }
+  document.getElementById('quiz-next').classList.add('show');
+}
+
+function showFeedback(ok, msg){
+  const el = document.getElementById('quiz-feedback');
+  el.innerHTML = msg;
+  el.className = `quiz-feedback show ${ok?'correct-fb':'wrong-fb'}`;
+}
+
+function nextQuestion(){
+  qIndex++;
+  if(qIndex>=qList.length){ endQuiz(); return; }
+  renderQuestion();
+}
+
+function endQuiz(){
+  clearInterval(qTimerInterval);
+  showResults(roundPts, correctCount, maxStreak, roundBonus, 'quiz');
+}
+
+// ══════════════════════════════════════
+// MATCH (MEMORY) MODE
+// ══════════════════════════════════════
+const MATCH_PAIRS = [
+  {id:'jaguar',  emoji:'🐆', name:'Jaguar',    biome:'🌴 Selva'},
+  {id:'leon',    emoji:'🦁', name:'León',      biome:'🦁 Sabana'},
+  {id:'camello', emoji:'🐪', name:'Camello',   biome:'🌵 Desierto'},
+  {id:'ballena', emoji:'🐋', name:'Ballena',   biome:'🌊 Océano'},
+  {id:'condor',  emoji:'🦅', name:'Cóndor',    biome:'🏔️ Montaña'},
+  {id:'lobo',    emoji:'🐺', name:'Lobo',      biome:'🌲 Boreal'},
+  {id:'oso-pol', emoji:'🐻‍❄️', name:'Oso polar', biome:'🧊 Tundra'},
+  {id:'ciervo',  emoji:'🦌', name:'Ciervo',    biome:'🍂 Templado'},
+];
+
+let flipped=[], matchedCount=0, matchTries=0, matchTimerVal=60, matchTimerInt=null;
+
+function startMatch(){
+  matchedCount=0; matchTries=0; matchTimerVal=60; flipped=[];
+  document.getElementById('match-pairs').textContent='0';
+  document.getElementById('match-tries').textContent='0';
+  document.getElementById('match-timer').textContent='60';
+  document.getElementById('match-timer-bar').style.width='100%';
+
+  const cards = shuffleArr([
+    ...MATCH_PAIRS.map(p=>({...p,type:'animal'})),
+    ...MATCH_PAIRS.map(p=>({id:p.id,type:'biome',biome:p.biome,emoji:'❓'}))
+  ]);
+
+  const grid = document.getElementById('match-grid');
+  grid.innerHTML = cards.map((c,i)=>`
+    <div class="match-card" data-id="${c.id}" data-type="${c.type}" data-index="${i}" onclick="flipCard(this)">
+      <div class="card-back">🌿</div>
+      <div class="card-front">
+        <span style="font-size:1.8rem">${c.type==='animal'?c.emoji:'🏕️'}</span>
+        <span class="match-card-name">${c.type==='animal'?c.name:c.biome}</span>
+      </div>
+    </div>
+  `).join('');
+
+  showScreen('screen-match');
+
+  matchTimerInt = setInterval(()=>{
+    matchTimerVal--;
+    document.getElementById('match-timer').textContent = matchTimerVal;
+    document.getElementById('match-timer-bar').style.width = (matchTimerVal/60*100)+'%';
+    if(matchTimerVal<=10) document.getElementById('match-timer').style.color='var(--red)';
+    if(matchTimerVal<=0){ clearInterval(matchTimerInt); endMatch(false); }
+  },1000);
+}
+
+function flipCard(card){
+  if(card.classList.contains('matched')) return;
+  if(flipped.length===2) return;
+  if(flipped.includes(card)) return;
+  card.classList.add('flipped');
+  flipped.push(card);
+  if(flipped.length===2){
+    matchTries++;
+    document.getElementById('match-tries').textContent=matchTries;
+    const [a,b] = flipped;
+    if(a.dataset.id===b.dataset.id && a.dataset.type!==b.dataset.type){
+      a.classList.add('matched'); b.classList.add('matched');
+      matchedCount++;
+      document.getElementById('match-pairs').textContent=matchedCount;
+      addPoints(50, b.getBoundingClientRect().x, b.getBoundingClientRect().y);
+      flipped=[];
+      if(matchedCount===8){ clearInterval(matchTimerInt); setTimeout(()=>endMatch(true),400); }
+    } else {
+      setTimeout(()=>{
+        a.classList.remove('flipped'); b.classList.remove('flipped'); flipped=[];
+      },900);
+    }
+  }
+}
+
+function endMatch(won){
+  const pts = won ? 100 + matchTimerVal*3 + Math.max(0,(16-matchTries)*10) : matchedCount*30;
+  roundPts = pts;
+  showResults(pts, matchedCount, 0, matchTimerVal>0?matchTimerVal*3:0, 'match');
+}
+
+// ══════════════════════════════════════
+// SORT MODE
+// ══════════════════════════════════════
+const SORT_ROUNDS = [
+  {
+    title:'Animales de Selva vs Desierto',
+    biomes:['selva','desierto'],
+    items: SPECIES.filter(s=>s.biome==='selva'||s.biome==='desierto').slice(0,8)
+  },
+  {
+    title:'Fauna de Océano vs Montaña',
+    biomes:['oceano','montaña'],
+    items: SPECIES.filter(s=>s.biome==='oceano'||s.biome==='montaña').slice(0,8)
+  },
+  {
+    title:'Boreal vs Tundra: ¿Quién vive dónde?',
+    biomes:['boreal','tundra'],
+    items: SPECIES.filter(s=>s.biome==='boreal'||s.biome==='tundra').slice(0,6)
+  }
+];
+let sortRound=null, sortTimerVal=45, sortTimerInt2=null;
+let dragItem=null;
+
+function startSort(){
+  sortRound = SORT_ROUNDS[Math.floor(Math.random()*SORT_ROUNDS.length)];
+  sortTimerVal=45;
+  document.getElementById('sort-title').textContent = sortRound.title;
+  document.getElementById('sort-timer-bar').style.width='100%';
+  document.getElementById('sort-check').style.display='none';
+
+  // Items
+  const itemsEl = document.getElementById('sort-items');
+  itemsEl.innerHTML = shuffleArr(sortRound.items).map(s=>`
+    <div class="sort-item" draggable="true" data-biome="${s.biome}" data-name="${s.name}"
+      ondragstart="dragStart(event,this)"
+      ondragend="this.classList.remove('dragging')">
+      ${s.emoji} ${s.name}
+    </div>
+  `).join('');
+
+  // Targets
+  const targetsEl = document.getElementById('sort-targets');
+  targetsEl.innerHTML = sortRound.biomes.map(b=>`
+    <div>
+      <div class="sort-label">${BIOMES[b]?.emoji} ${BIOMES[b]?.name}</div>
+      <div class="sort-target" data-target-biome="${b}"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="dropItem(event,this,'${b}')">
+      </div>
+    </div>
+  `).join('');
+
+  showScreen('screen-sort');
+
+  sortTimerInt2 = setInterval(()=>{
+    sortTimerVal--;
+    document.getElementById('sort-timer-bar').style.width=(sortTimerVal/45*100)+'%';
+    if(sortTimerVal<=0){ clearInterval(sortTimerInt2); checkSort(); }
+  },1000);
+}
+
+function dragStart(e, el){ dragItem=el; el.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; }
+
+function dropItem(e, target, biome){
+  e.preventDefault();
+  target.classList.remove('drag-over');
+  if(!dragItem) return;
+  target.appendChild(dragItem);
+  dragItem = null;
+  // Show check if all items placed
+  const remaining = document.getElementById('sort-items').children.length;
+  if(remaining===0) document.getElementById('sort-check').style.display='block';
+}
+
+function checkSort(){
+  clearInterval(sortTimerInt2);
+  let correct=0, total=0;
+  document.querySelectorAll('.sort-target').forEach(target=>{
+    const targetBiome = target.dataset.targetBiome;
+    target.querySelectorAll('.sort-item').forEach(item=>{
+      total++;
+      if(item.dataset.biome===targetBiome){ correct++; item.classList.add('correct-sort'); }
+      else item.classList.add('wrong-sort');
+    });
+  });
+  const pts = correct*40 + (correct===total?100:0) + Math.floor(sortTimerVal*2);
+  roundPts = pts;
+  setTimeout(()=>showResults(pts, correct, 0, correct===total?100:0, 'sort'),800);
+}
+
+// ══════════════════════════════════════
+// RESULTS
+// ══════════════════════════════════════
+function showResults(pts, correct, streak, bonus, mode){
+  const icons = {quiz:'🧠',match:'🃏',sort:'🔀'};
+  const titles = {quiz:'RONDA QUIZ',match:'MEMORIA',sort:'CLASIFICADO'};
+  document.getElementById('results-icon').textContent = pts>150?'🏆':pts>80?'⭐':'🌱';
+  document.getElementById('results-title').textContent = titles[mode]||'RESULTADO';
+  document.getElementById('results-pts').textContent = '+'+pts.toLocaleString('es-CL');
+  document.getElementById('r-correct').textContent = correct;
+  document.getElementById('r-streak').textContent = streak;
+  document.getElementById('r-bonus').textContent = bonus;
+  document.getElementById('r-total-pts').textContent = myPoints.toLocaleString('es-CL');
+
+  // Global bar
+  const pct = Math.min((globalPoints/500000)*100,100);
+  document.getElementById('r-bar').style.width='0%';
+  setTimeout(()=>document.getElementById('r-bar').style.width=pct+'%',200);
+  document.getElementById('r-bar-l').textContent = globalPoints.toLocaleString('es-CL');
+  document.getElementById('r-bar-r').textContent = '500.000';
+
+  const needed = 500000 - globalPoints;
+  document.getElementById('r-next-milestone').textContent = needed>0?`Faltan ${needed.toLocaleString('es-CL')} pts`:'¡META ALCANZADA! 🎉';
+
+  const msgs = [
+    '🌱 ¡Cada punto importa! La comunidad TERRA lleva '+globalPoints.toLocaleString('es-CL')+' pts acumulados.',
+    '🌊 Al alcanzar 500.000 pts, una empresa socia limpiará 10 km de costa chilena.',
+    '🤝 Tu conocimiento sobre biodiversidad activa compromisos reales de responsabilidad corporativa.',
+    '🌍 Más de 2.400 personas ya juegan Terra Quest en Latinoamérica.',
+  ];
+  document.getElementById('impact-msg').textContent = msgs[Math.floor(Math.random()*msgs.length)];
+
+  showScreen('screen-results');
+}
+
+// ══════════════════════════════════════
+// GLOBAL COUNTER ANIMATION
+// ══════════════════════════════════════
+function animateGlobalBar(){
+  const pct = (globalPoints/500000)*100;
+  const bar = document.getElementById('global-bar');
+  if(bar) setTimeout(()=>bar.style.width=pct+'%',300);
+}
+animateGlobalBar();
+
+// Subtle global counter tick
+setInterval(()=>{
+  globalPoints += Math.floor(Math.random()*8+1);
+  const el = document.getElementById('global-counter');
+  if(el) el.textContent = globalPoints.toLocaleString('es-CL');
+  document.getElementById('nav-global').textContent = globalPoints.toLocaleString('es-CL');
+  animateGlobalBar();
+},3000);
+</script>
+</body>
+</html>

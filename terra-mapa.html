@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TERRA — Mapamundi de Climas</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Mono:wght@300;400;500&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<style>
+  :root {
+    --bg: #050f08;
+    --surface: #0a1a10;
+    --surface2: #0f2416;
+    --green: #2dff7e;
+    --green-dim: #1a9948;
+    --green-glow: rgba(45,255,126,0.15);
+    --text: #e8f5ec;
+    --text-dim: #6b8f72;
+    --border: rgba(45,255,126,0.12);
+
+    /* Colores de clima */
+    --c-tropical:    #1db954;
+    --c-savanna:     #8bc34a;
+    --c-desert:      #e6a817;
+    --c-mediterr:    #a8c84a;
+    --c-temperate:   #4caf7d;
+    --c-continental: #2e86ab;
+    --c-boreal:      #1565a0;
+    --c-tundra:      #78909c;
+    --c-polar:       #b0bec5;
+    --c-monsoon:     #00897b;
+    --c-subtropical: #66bb6a;
+    --c-highland:    #8d6e63;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events:none; z-index:1000; opacity:0.4;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed; top:0; left:0; right:0; z-index:200;
+    padding: 1rem 2rem;
+    display: flex; align-items:center; justify-content:space-between;
+    background: rgba(5,15,8,0.9);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-logo { font-family:'Playfair Display',serif; font-size:1.4rem; font-weight:900; color:var(--green); letter-spacing:-0.02em; }
+  .nav-back {
+    font-family:'DM Mono',monospace; font-size:0.75rem; letter-spacing:0.1em;
+    color:var(--text-dim); text-decoration:none; border:1px solid var(--border);
+    padding:0.4rem 1rem; border-radius:2rem; transition:all 0.2s;
+  }
+  .nav-back:hover { color:var(--green); border-color:var(--green-dim); }
+
+  /* HERO */
+  .map-hero {
+    padding: 6rem 2rem 2rem;
+    text-align:center;
+  }
+  .map-hero .badge {
+    font-family:'DM Mono',monospace; font-size:0.7rem; letter-spacing:0.25em;
+    color:var(--green); border:1px solid var(--green-dim);
+    padding:0.35rem 1rem; border-radius:2rem; display:inline-block;
+    margin-bottom:1rem; background:rgba(45,255,126,0.05);
+    animation: fadeUp 0.6s ease both;
+  }
+  .map-hero h1 {
+    font-family:'Playfair Display',serif;
+    font-size: clamp(2rem, 5vw, 4rem);
+    font-weight:900; line-height:1;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+  .map-hero h1 em { color:var(--green); font-style:italic; }
+  .map-hero p {
+    color:var(--text-dim); max-width:520px; margin:1rem auto 0;
+    line-height:1.7; font-weight:300;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+  /* LAYOUT */
+  .main-layout {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 0;
+    min-height: calc(100vh - 200px);
+    padding: 1.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  @media(max-width:900px) {
+    .main-layout { grid-template-columns:1fr; }
+    .info-panel { order:-1; }
+  }
+
+  /* MAP CONTAINER */
+  .map-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 1.5rem;
+    overflow: hidden;
+    position: relative;
+    min-height: 500px;
+  }
+
+  .map-loading {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:1rem; color:var(--text-dim);
+  }
+  .spinner {
+    width:40px; height:40px;
+    border:2px solid var(--border);
+    border-top-color:var(--green);
+    border-radius:50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  #map-svg {
+    width:100%; height:100%;
+    cursor:grab;
+  }
+  #map-svg:active { cursor:grabbing; }
+
+  .country-path {
+    stroke: rgba(5,15,8,0.6);
+    stroke-width: 0.3px;
+    transition: opacity 0.2s;
+  }
+  .country-path:hover { opacity:0.75; cursor:pointer; stroke-width:1px; stroke:var(--green); }
+  .country-path.selected { stroke:var(--green); stroke-width:1.5px; opacity:1; }
+
+  /* MAP CONTROLS */
+  .map-controls {
+    position:absolute; bottom:1rem; left:1rem;
+    display:flex; gap:0.5rem;
+  }
+  .map-btn {
+    background:rgba(10,26,16,0.9); border:1px solid var(--border);
+    color:var(--text); width:32px; height:32px;
+    border-radius:0.4rem; cursor:pointer; font-size:0.9rem;
+    display:flex; align-items:center; justify-content:center;
+    transition:all 0.2s; backdrop-filter:blur(8px);
+  }
+  .map-btn:hover { border-color:var(--green-dim); color:var(--green); }
+
+  /* TOOLTIP */
+  .map-tooltip {
+    position:fixed; z-index:500;
+    background: rgba(10,26,16,0.95);
+    border:1px solid var(--green-dim);
+    padding:0.6rem 0.9rem;
+    border-radius:0.5rem;
+    font-size:0.8rem;
+    pointer-events:none;
+    backdrop-filter:blur(8px);
+    display:none;
+    font-family:'DM Mono',monospace;
+    color:var(--green);
+    box-shadow:0 4px 20px rgba(0,0,0,0.5);
+  }
+
+  /* INFO PANEL */
+  .info-panel {
+    padding: 0 0 0 1.5rem;
+    display:flex; flex-direction:column; gap:1rem;
+  }
+
+  @media(max-width:900px) {
+    .info-panel { padding:1.5rem 0 0; }
+  }
+
+  .panel-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 1.25rem;
+    padding: 1.5rem;
+    animation: fadeUp 0.4s ease;
+  }
+
+  .panel-title {
+    font-family:'Playfair Display',serif;
+    font-size:1.5rem; font-weight:700; margin-bottom:0.25rem;
+  }
+  .climate-badge {
+    display:inline-block;
+    font-size:0.7rem; font-family:'DM Mono',monospace;
+    letter-spacing:0.1em; padding:0.3rem 0.75rem;
+    border-radius:2rem; margin-bottom:1rem;
+    text-transform:uppercase;
+  }
+
+  .panel-section { margin-bottom:1rem; }
+  .panel-section-label {
+    font-family:'DM Mono',monospace; font-size:0.65rem;
+    letter-spacing:0.15em; color:var(--green);
+    text-transform:uppercase; margin-bottom:0.4rem;
+  }
+  .panel-section p { font-size:0.85rem; color:var(--text-dim); line-height:1.6; }
+
+  .species-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; }
+  .species-item {
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:0.5rem; padding:0.5rem 0.75rem;
+    font-size:0.78rem; display:flex; align-items:center; gap:0.5rem;
+  }
+  .species-icon { font-size:1.1rem; flex-shrink:0; }
+
+  .threat-bar { margin-top:0.75rem; }
+  .threat-label-row { display:flex; justify-content:space-between; margin-bottom:0.3rem; }
+  .threat-label { font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--text-dim); }
+  .threat-val { font-family:'DM Mono',monospace; font-size:0.65rem; }
+  .bar-track { height:5px; background:var(--surface2); border-radius:3px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:3px; transition:width 0.8s cubic-bezier(0.16,1,0.3,1); }
+
+  /* LEGEND */
+  .legend-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:1.25rem; padding:1.25rem;
+  }
+  .legend-title {
+    font-family:'DM Mono',monospace; font-size:0.65rem;
+    letter-spacing:0.15em; color:var(--green);
+    text-transform:uppercase; margin-bottom:0.75rem;
+  }
+  .legend-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.4rem; }
+  .legend-item {
+    display:flex; align-items:center; gap:0.5rem;
+    cursor:pointer; padding:0.25rem; border-radius:0.3rem;
+    transition:background 0.2s;
+  }
+  .legend-item:hover { background:var(--surface2); }
+  .legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .legend-name { font-size:0.72rem; color:var(--text-dim); }
+
+  /* DEFAULT PANEL */
+  .default-panel {
+    display:flex; flex-direction:column; align-items:center;
+    justify-content:center; text-align:center; padding:2rem;
+    color:var(--text-dim); gap:0.75rem; min-height:200px;
+  }
+  .default-panel .big-icon { font-size:3rem; }
+  .default-panel p { font-size:0.85rem; line-height:1.6; max-width:240px; }
+
+  /* STATS ROW */
+  .climate-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:0.5rem; margin:1rem 0; }
+  .cstat { background:var(--surface2); border:1px solid var(--border); border-radius:0.75rem; padding:0.6rem; text-align:center; }
+  .cstat-num { font-family:'Playfair Display',serif; font-size:1.2rem; color:var(--green); display:block; }
+  .cstat-lbl { font-size:0.62rem; font-family:'DM Mono',monospace; color:var(--text-dim); text-transform:uppercase; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">TERRA</div>
+  <a href="terra-ai.html" class="nav-back">← Volver a TERRA</a>
+</nav>
+
+<div class="map-hero">
+  <div class="badge">🗺️ Atlas Climático Interactivo</div>
+  <h1>Climas del <em>Mundo</em></h1>
+  <p>Haz clic en cualquier país para explorar su clima, fauna, flora y amenazas ambientales en tiempo real.</p>
+</div>
+
+<div class="main-layout">
+  <!-- MAPA -->
+  <div class="map-container" id="map-container">
+    <div class="map-loading" id="loading">
+      <div class="spinner"></div>
+      <span style="font-family:'DM Mono',monospace;font-size:0.75rem;letter-spacing:0.1em;">CARGANDO MAPA...</span>
+    </div>
+    <svg id="map-svg"></svg>
+    <div class="map-controls">
+      <button class="map-btn" id="zoom-in" title="Acercar">+</button>
+      <button class="map-btn" id="zoom-out" title="Alejar">−</button>
+      <button class="map-btn" id="zoom-reset" title="Resetear">⊙</button>
+    </div>
+  </div>
+
+  <!-- PANEL -->
+  <div class="info-panel">
+    <div class="panel-card" id="info-card">
+      <div class="default-panel" id="default-content">
+        <div class="big-icon">🌍</div>
+        <p>Selecciona un país en el mapa para ver su clima, biodiversidad y estado ambiental.</p>
+      </div>
+      <div id="country-content" style="display:none"></div>
+    </div>
+
+    <div class="legend-card">
+      <div class="legend-title">// Zonas Climáticas</div>
+      <div class="legend-grid" id="legend"></div>
+    </div>
+  </div>
+</div>
+
+<div class="map-tooltip" id="tooltip"></div>
+
+<script>
+// ══════════════════════════════════════════════
+// DATOS DE CLIMAS
+// ══════════════════════════════════════════════
+const CLIMATES = {
+  tropical_rainforest: {
+    name: 'Selva Tropical',
+    color: '#1db954',
+    emoji: '🌴',
+    temp: '24–30°C',
+    rain: '> 2000 mm/año',
+    description: 'La zona más biodiversa del planeta. Calor y humedad constante durante todo el año, sin estación seca definida. Alberga más del 50% de las especies terrestres.',
+    fauna: [
+      {icon:'🦜',name:'Guacamayo'},{icon:'🐆',name:'Jaguar'},
+      {icon:'🐸',name:'Rana dardo'},{icon:'🦋',name:'Morpho azul'},
+      {icon:'🐊',name:'Caimán'},{icon:'🦥',name:'Perezoso'}
+    ],
+    flora: [
+      {icon:'🌳',name:'Ceiba'},{icon:'🌿',name:'Helecho arborescente'},
+      {icon:'🌺',name:'Orquídea'},{icon:'🍀',name:'Bromelias'}
+    ],
+    threats: { deforestation: 82, temperature: 65, biodiversity_loss: 75 },
+    countries: [76,170,218,862,604,68,600,32,710,180,266,678,624,466,620]
+  },
+  tropical_savanna: {
+    name: 'Sabana Tropical',
+    color: '#8bc34a',
+    emoji: '🦁',
+    temp: '20–32°C',
+    rain: '600–1600 mm/año',
+    description: 'Praderas tropicales con estación seca marcada. Caracterizadas por pastizales altos con árboles dispersos. Ecosistema hogar de la megafauna africana.',
+    fauna: [
+      {icon:'🦁',name:'León'},{icon:'🐘',name:'Elefante'},
+      {icon:'🦒',name:'Jirafa'},{icon:'🦓',name:'Cebra'},
+      {icon:'🐆',name:'Guepardo'},{icon:'🦅',name:'Águila marcial'}
+    ],
+    flora: [
+      {icon:'🌳',name:'Acacia'},{icon:'🌴',name:'Baobab'},
+      {icon:'🌾',name:'Andropogon'},{icon:'🌿',name:'Commiphora'}
+    ],
+    threats: { deforestation: 60, temperature: 72, biodiversity_loss: 55 },
+    countries: [404,800,834,508,716,288,768,204,894,566,246,704,360,356,764,116]
+  },
+  desert: {
+    name: 'Desierto',
+    color: '#e6a817',
+    emoji: '🌵',
+    temp: '−10 a 50°C',
+    rain: '< 250 mm/año',
+    description: 'Las regiones más áridas del mundo. Temperatura extrema entre día y noche. Adaptaciones extraordinarias de vida en condiciones hostiles.',
+    fauna: [
+      {icon:'🦂',name:'Escorpión'},{icon:'🐍',name:'Serpiente de cascabel'},
+      {icon:'🦎',name:'Lagarto thorny'},{icon:'🐪',name:'Camello'},
+      {icon:'🦅',name:'Cóndor'},{icon:'🐾',name:'Fennec'}
+    ],
+    flora: [
+      {icon:'🌵',name:'Saguaro'},{icon:'🌿',name:'Jojoba'},
+      {icon:'🪨',name:'Lithops'},{icon:'🌱',name:'Retama'}
+    ],
+    threats: { deforestation: 15, temperature: 95, biodiversity_loss: 40 },
+    countries: [12,818,434,729,504,682,784,400,887,8,710,32,604,152]
+  },
+  mediterranean: {
+    name: 'Mediterráneo',
+    color: '#a8c84a',
+    emoji: '🫒',
+    temp: '10–25°C',
+    rain: '300–900 mm/año',
+    description: 'Veranos secos y calurosos, inviernos suaves y húmedos. Una de las regiones con mayor biodiversidad de flora por km². Ecosistema muy amenazado por urbanización.',
+    fauna: [
+      {icon:'🦎',name:'Lagarto verde'},{icon:'🦅',name:'Águila real'},
+      {icon:'🐺',name:'Lobo ibérico'},{icon:'🐟',name:'Atún rojo'},
+      {icon:'🦔',name:'Erizo europeo'},{icon:'🦋',name:'Mariposa Apolo'}
+    ],
+    flora: [
+      {icon:'🫒',name:'Olivo'},{icon:'🌿',name:'Romero'},
+      {icon:'🌳',name:'Encina'},{icon:'🌸',name:'Lavanda'}
+    ],
+    threats: { deforestation: 45, temperature: 80, biodiversity_loss: 65 },
+    countries: [724,380,300,705,191,504,788,620,100,196]
+  },
+  temperate: {
+    name: 'Templado Oceánico',
+    color: '#4caf7d',
+    emoji: '🌲',
+    temp: '5–20°C',
+    rain: '600–1500 mm/año',
+    description: 'Clima suave con lluvias distribuidas todo el año. Bosques caducifolios exuberantes. Alta densidad de población humana ha reducido los ecosistemas naturales significativamente.',
+    fauna: [
+      {icon:'🦊',name:'Zorro rojo'},{icon:'🦉',name:'Búho común'},
+      {icon:'🐿️',name:'Ardilla'},{icon:'🦌',name:'Ciervo'},
+      {icon:'🐗',name:'Jabalí'},{icon:'🦫',name:'Castor'}
+    ],
+    flora: [
+      {icon:'🍂',name:'Roble'},{icon:'🌳',name:'Haya'},
+      {icon:'🍁',name:'Arce'},{icon:'🌿',name:'Helechos'}
+    ],
+    threats: { deforestation: 55, temperature: 60, biodiversity_loss: 60 },
+    countries: [250,276,826,528,56,756,40,208,578,752,246,616,804,348]
+  },
+  continental: {
+    name: 'Continental',
+    color: '#2e86ab',
+    emoji: '🌾',
+    temp: '−20 a 25°C',
+    rain: '300–600 mm/año',
+    description: 'Grandes variaciones estacionales. Veranos calurosos, inviernos crudos. Amplias estepas y praderas. Gran productor de cereales del mundo.',
+    fauna: [
+      {icon:'🦬',name:'Bisonte'},{icon:'🐺',name:'Lobo gris'},
+      {icon:'🦅',name:'Águila dorada'},{icon:'🦌',name:'Alce'},
+      {icon:'🐻',name:'Oso pardo'},{icon:'🦊',name:'Zorro ártico'}
+    ],
+    flora: [
+      {icon:'🌾',name:'Estepa'},{icon:'🌳',name:'Abedul'},
+      {icon:'🌿',name:'Artemisia'},{icon:'🍀',name:'Festuca'}
+    ],
+    threats: { deforestation: 40, temperature: 70, biodiversity_loss: 45 },
+    countries: [840,124,156,496,398,792,804,616,703,348,112,498,642]
+  },
+  boreal: {
+    name: 'Boreal / Taiga',
+    color: '#1565a0',
+    emoji: '🌲',
+    temp: '−40 a 20°C',
+    rain: '200–600 mm/año',
+    description: 'El bosque más extenso del mundo. Coníferas dominan el paisaje. Inviernos extremadamente largos. Almacén crucial de carbono global.',
+    fauna: [
+      {icon:'🐺',name:'Lobo siberiano'},{icon:'🐻',name:'Oso pardo'},
+      {icon:'🦌',name:'Reno'},{icon:'🦅',name:'Águila pescadora'},
+      {icon:'🦫',name:'Castor'},{icon:'🦉',name:'Búho nival'}
+    ],
+    flora: [
+      {icon:'🌲',name:'Pino silvestre'},{icon:'🌲',name:'Abeto de Noruega'},
+      {icon:'🌳',name:'Alerce siberiano'},{icon:'🌿',name:'Musgo Sphagnum'}
+    ],
+    threats: { deforestation: 48, temperature: 85, biodiversity_loss: 50 },
+    countries: [643,124,578,752,246,233,440]
+  },
+  tundra: {
+    name: 'Tundra',
+    color: '#78909c',
+    emoji: '🧊',
+    temp: '−30 a 10°C',
+    rain: '< 250 mm/año',
+    description: 'Permafrost permanente bajo el suelo. Vegetación rastrera y adaptada al frío extremo. El deshielo del permafrost libera metano, acelerando el cambio climático.',
+    fauna: [
+      {icon:'🐻‍❄️',name:'Oso polar'},{icon:'🦌',name:'Caribú'},
+      {icon:'🐦',name:'Chorlito ártico'},{icon:'🐺',name:'Lobo ártico'},
+      {icon:'🦊',name:'Zorro ártico'},{icon:'🦭',name:'Foca'}
+    ],
+    flora: [
+      {icon:'🌿',name:'Musgo ártico'},{icon:'🌸',name:'Saxífraga'},
+      {icon:'🌱',name:'Liquen de reno'},{icon:'🍀',name:'Algodón ártico'}
+    ],
+    threats: { deforestation: 10, temperature: 98, biodiversity_loss: 70 },
+    countries: [304,352]
+  },
+  polar: {
+    name: 'Polar / Glacial',
+    color: '#b0bec5',
+    emoji: '❄️',
+    temp: '< −10°C',
+    rain: '< 200 mm/año',
+    description: 'Las regiones más frías del planeta. Hielo permanente que actúa como regulador del clima global. El derretimiento de los polos es el termómetro más visible del calentamiento.',
+    fauna: [
+      {icon:'🐧',name:'Pingüino emperador'},{icon:'🦭',name:'Elefante marino'},
+      {icon:'🐋',name:'Ballena azul'},{icon:'🐟',name:'Krill antártico'},
+      {icon:'🦅',name:'Petrel'},{icon:'🦭',name:'Leopardo marino'}
+    ],
+    flora: [
+      {icon:'🌿',name:'Musgos antárticos'},{icon:'🍀',name:'Liquen polar'},
+      {icon:'🌱',name:'Pasto antártico'},{icon:'🌊',name:'Algas glaciales'}
+    ],
+    threats: { deforestation: 5, temperature: 100, biodiversity_loss: 60 },
+    countries: [10]
+  },
+  monsoon: {
+    name: 'Monzónico',
+    color: '#00897b',
+    emoji: '🌧️',
+    temp: '18–35°C',
+    rain: '1000–3000 mm/año',
+    description: 'Vientos estacionales que traen lluvias torrenciales en verano y sequías en invierno. Sustenta a más de 2 mil millones de personas. Enormemente sensible al cambio climático.',
+    fauna: [
+      {icon:'🐯',name:'Tigre de Bengala'},{icon:'🐘',name:'Elefante asiático'},
+      {icon:'🦚',name:'Pavo real'},{icon:'🐊',name:'Cocodrilo del Ganges'},
+      {icon:'🦜',name:'Loro alejandrino'},{icon:'🐒',name:'Macaco de la India'}
+    ],
+    flora: [
+      {icon:'🌴',name:'Teca'},{icon:'🎋',name:'Bambú gigante'},
+      {icon:'🌸',name:'Loto'},{icon:'🌿',name:'Neem'}
+    ],
+    threats: { deforestation: 70, temperature: 78, biodiversity_loss: 72 },
+    countries: [356,50,144,104,764,116,458,702,608,706]
+  },
+  subtropical: {
+    name: 'Subtropical Húmedo',
+    color: '#66bb6a',
+    emoji: '🌿',
+    temp: '15–28°C',
+    rain: '800–1600 mm/año',
+    description: 'Veranos calurosos y húmedos, inviernos suaves. Mezcla de bosques templados y tropicales. Alta diversidad de aves migratorias.',
+    fauna: [
+      {icon:'🐊',name:'Caimán americano'},{icon:'🦅',name:'Buitre americano'},
+      {icon:'🐢',name:'Tortuga de caja'},{icon:'🦜',name:'Carolina parakeet'},
+      {icon:'🦌',name:'Venado cola blanca'},{icon:'🐍',name:'Serpiente del maíz'}
+    ],
+    flora: [
+      {icon:'🌳',name:'Magnolia'},{icon:'🌿',name:'Kudzu'},
+      {icon:'🌴',name:'Palmito'},{icon:'🍁',name:'Cipres calvo'}
+    ],
+    threats: { deforestation: 65, temperature: 68, biodiversity_loss: 60 },
+    countries: [484,558,320,340,222,188,32,858,600,152,710,426,748,710,426]
+  },
+  highland: {
+    name: 'Montaña / Highland',
+    color: '#8d6e63',
+    emoji: '🏔️',
+    temp: '−5 a 15°C',
+    rain: 'Variable',
+    description: 'Ecosistemas de alta montaña con variación extrema según altitud. Islas de biodiversidad única, hotspots de endemismo. Glaciares que abastecen de agua a millones.',
+    fauna: [
+      {icon:'🦙',name:'Vicuña'},{icon:'🦅',name:'Cóndor andino'},
+      {icon:'🐆',name:'Puma'},{icon:'🦁',name:'Leopardo de las nieves'},
+      {icon:'🐻‍❄️',name:'Oso de anteojos'},{icon:'🦌',name:'Taruka'}
+    ],
+    flora: [
+      {icon:'🌿',name:'Paja brava'},{icon:'🌸',name:'Polylepis'},
+      {icon:'🌺',name:'Puya raimondii'},{icon:'🍀',name:'Musgo andino'}
+    ],
+    threats: { deforestation: 35, temperature: 88, biodiversity_loss: 55 },
+    countries: [604,68,218,156,356,356,524,64,894]
+  }
+};
+
+// Mapeo país ID → clima dominante
+const COUNTRY_CLIMATE = {
+  // AMÉRICAS
+  76:'tropical_rainforest',170:'tropical_rainforest',218:'tropical_rainforest',
+  862:'tropical_savanna',604:'highland',68:'highland',
+  32:'subtropical',858:'subtropical',600:'subtropical',
+  152:'mediterranean',840:'continental',484:'subtropical',
+  // EUROPA
+  724:'mediterranean',380:'mediterranean',300:'mediterranean',
+  250:'temperate',276:'temperate',826:'temperate',
+  528:'temperate',56:'temperate',756:'temperate',40:'temperate',
+  208:'temperate',616:'continental',804:'continental',
+  578:'boreal',752:'boreal',246:'boreal',233:'boreal',
+  // AFRICA
+  12:'desert',818:'desert',434:'desert',504:'mediterranean',
+  729:'desert',788:'desert',566:'tropical_savanna',
+  404:'tropical_savanna',834:'tropical_savanna',800:'tropical_savanna',
+  508:'tropical_savanna',716:'tropical_savanna',710:'subtropical',
+  180:'tropical_rainforest',266:'tropical_rainforest',678:'tropical_rainforest',
+  // ASIA
+  356:'monsoon',50:'monsoon',144:'monsoon',104:'monsoon',
+  764:'monsoon',116:'monsoon',458:'monsoon',702:'monsoon',
+  608:'monsoon',524:'highland',64:'highland',
+  643:'boreal',156:'continental',496:'continental',
+  792:'continental',682:'desert',784:'desert',400:'desert',
+  887:'desert',364:'desert',
+  392:'temperate',410:'temperate',
+  // OCEANÍA
+  36:'desert',554:'temperate',
+  // POLAR / TUNDRA
+  304:'tundra',352:'tundra',10:'polar',
+  124:'boreal',
+};
+
+const COUNTRY_NAMES = {
+  76:'Brasil',170:'Colombia',218:'Ecuador',862:'Venezuela',
+  604:'Perú',68:'Bolivia',32:'Argentina',858:'Uruguay',600:'Paraguay',
+  152:'Chile',840:'Estados Unidos',484:'México',
+  724:'España',380:'Italia',300:'Grecia',250:'Francia',276:'Alemania',
+  826:'Reino Unido',528:'Países Bajos',56:'Bélgica',756:'Suiza',
+  40:'Austria',208:'Dinamarca',616:'Polonia',804:'Ucrania',
+  578:'Noruega',752:'Suecia',246:'Finlandia',233:'Estonia',
+  12:'Argelia',818:'Egipto',434:'Libia',504:'Marruecos',
+  729:'Sudán',788:'Túnez',566:'Nigeria',404:'Kenia',
+  834:'Tanzania',800:'Uganda',508:'Mozambique',716:'Zimbabue',
+  710:'Sudáfrica',180:'R. D. Congo',266:'Gabón',678:'Sto. Tomé y P.',
+  356:'India',50:'Bangladesh',144:'Sri Lanka',104:'Myanmar',
+  764:'Tailandia',116:'Camboya',458:'Malasia',702:'Singapur',
+  608:'Filipinas',524:'Nepal',64:'Bután',
+  643:'Rusia',156:'China',496:'Mongolia',792:'Turquía',
+  682:'Arabia Saudita',784:'Emiratos Árabes',400:'Jordania',
+  887:'Yemen',364:'Irán',392:'Japón',410:'Corea del Sur',
+  36:'Australia',554:'Nueva Zelanda',
+  304:'Groenlandia',352:'Islandia',10:'Antártida',
+  124:'Canadá',
+};
+
+const LEGENDS = [
+  ['tropical_rainforest','🌴 Selva Tropical'],
+  ['tropical_savanna','🦁 Sabana Tropical'],
+  ['monsoon','🌧️ Monzónico'],
+  ['subtropical','🌿 Subtropical'],
+  ['mediterranean','🫒 Mediterráneo'],
+  ['temperate','🌲 Templado'],
+  ['continental','🌾 Continental'],
+  ['highland','🏔️ Montaña'],
+  ['boreal','🌲 Boreal/Taiga'],
+  ['tundra','🧊 Tundra'],
+  ['polar','❄️ Polar'],
+  ['desert','🌵 Desierto'],
+];
+
+// ══════════════════════════════════════════════
+// RENDER MAP
+// ══════════════════════════════════════════════
+const svgEl = document.getElementById('map-svg');
+const container = document.getElementById('map-container');
+const tooltip = document.getElementById('tooltip');
+let selectedCountry = null;
+
+function getClimateColor(id) {
+  const key = COUNTRY_CLIMATE[id];
+  return key ? CLIMATES[key].color : '#1a2a1f';
+}
+
+async function initMap() {
+  const world = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+  document.getElementById('loading').style.display = 'none';
+
+  const w = container.clientWidth;
+  const h = container.clientHeight || 520;
+
+  const svg = d3.select('#map-svg')
+    .attr('viewBox', `0 0 ${w} ${h}`)
+    .attr('preserveAspectRatio', 'xMidYMid meet');
+
+  const projection = d3.geoNaturalEarth1()
+    .scale(w / 6.5)
+    .translate([w / 2, h / 2]);
+
+  const path = d3.geoPath().projection(projection);
+  const countries = topojson.feature(world, world.objects.countries);
+  const borders = topojson.mesh(world, world.objects.countries, (a, b) => a !== b);
+
+  const g = svg.append('g');
+
+  // Graticule
+  g.append('path')
+    .datum(d3.geoGraticule()())
+    .attr('d', path)
+    .attr('fill', 'none')
+    .attr('stroke', 'rgba(45,255,126,0.05)')
+    .attr('stroke-width', 0.3);
+
+  // Countries
+  g.selectAll('.country-path')
+    .data(countries.features)
+    .enter().append('path')
+    .attr('class', 'country-path')
+    .attr('d', path)
+    .attr('fill', d => getClimateColor(+d.id))
+    .on('mousemove', function(event, d) {
+      const name = COUNTRY_NAMES[+d.id] || 'Territorio';
+      const key = COUNTRY_CLIMATE[+d.id];
+      const climate = key ? CLIMATES[key].name : 'Desconocido';
+      tooltip.style.display = 'block';
+      tooltip.style.left = (event.clientX + 14) + 'px';
+      tooltip.style.top = (event.clientY - 10) + 'px';
+      tooltip.innerHTML = `<strong>${name}</strong><br>${climate}`;
+    })
+    .on('mouseleave', function() {
+      tooltip.style.display = 'none';
+    })
+    .on('click', function(event, d) {
+      d3.selectAll('.country-path').classed('selected', false);
+      d3.select(this).classed('selected', true);
+      selectedCountry = +d.id;
+      showCountryInfo(+d.id);
+    });
+
+  // Borders
+  g.append('path')
+    .datum(borders)
+    .attr('d', path)
+    .attr('fill', 'none')
+    .attr('stroke', 'rgba(5,15,8,0.5)')
+    .attr('stroke-width', 0.4);
+
+  // Zoom
+  const zoom = d3.zoom()
+    .scaleExtent([1, 8])
+    .on('zoom', e => g.attr('transform', e.transform));
+  svg.call(zoom);
+
+  document.getElementById('zoom-in').onclick = () => svg.transition().call(zoom.scaleBy, 1.5);
+  document.getElementById('zoom-out').onclick = () => svg.transition().call(zoom.scaleBy, 0.67);
+  document.getElementById('zoom-reset').onclick = () => svg.transition().call(zoom.transform, d3.zoomIdentity);
+}
+
+// ══════════════════════════════════════════════
+// PANEL INFO
+// ══════════════════════════════════════════════
+function showCountryInfo(id) {
+  const name = COUNTRY_NAMES[id] || 'Territorio desconocido';
+  const key = COUNTRY_CLIMATE[id];
+  if (!key) {
+    document.getElementById('default-content').style.display = 'flex';
+    document.getElementById('country-content').style.display = 'none';
+    document.getElementById('country-content').innerHTML = '';
+    return;
+  }
+  const c = CLIMATES[key];
+  document.getElementById('default-content').style.display = 'none';
+  const cc = document.getElementById('country-content');
+  cc.style.display = 'block';
+
+  const threatColor = (v) => v >= 80 ? '#ff4d4d' : v >= 60 ? '#f5c542' : '#2dff7e';
+
+  cc.innerHTML = `
+    <div style="margin-bottom:1rem;">
+      <p style="font-family:'DM Mono',monospace;font-size:0.65rem;letter-spacing:0.15em;color:var(--green);text-transform:uppercase;margin-bottom:0.25rem;">// país seleccionado</p>
+      <div class="panel-title">${name}</div>
+      <span class="climate-badge" style="background:${c.color}22;color:${c.color};border:1px solid ${c.color}44;">
+        ${c.emoji} ${c.name}
+      </span>
+      <p style="font-size:0.83rem;color:var(--text-dim);line-height:1.65;">${c.description}</p>
+    </div>
+
+    <div class="climate-stats">
+      <div class="cstat"><span class="cstat-num">${c.emoji}</span><span class="cstat-lbl">Clima</span></div>
+      <div class="cstat"><span class="cstat-num" style="font-size:0.85rem;">${c.temp}</span><span class="cstat-lbl">Temperatura</span></div>
+      <div class="cstat"><span class="cstat-num" style="font-size:0.85rem;">${c.rain}</span><span class="cstat-lbl">Lluvia</span></div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-section-label">// Fauna representativa</div>
+      <div class="species-grid">
+        ${c.fauna.map(f=>`<div class="species-item"><span class="species-icon">${f.icon}</span><span>${f.name}</span></div>`).join('')}
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-section-label">// Flora característica</div>
+      <div class="species-grid">
+        ${c.flora.map(f=>`<div class="species-item"><span class="species-icon">${f.icon}</span><span>${f.name}</span></div>`).join('')}
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-section-label">// Alertas Ambientales</div>
+
+      <div class="threat-bar">
+        <div class="threat-label-row">
+          <span class="threat-label">Deforestación</span>
+          <span class="threat-val" style="color:${threatColor(c.threats.deforestation)}">${c.threats.deforestation}%</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" id="b1" style="width:0%;background:${threatColor(c.threats.deforestation)}"></div>
+        </div>
+      </div>
+
+      <div class="threat-bar" style="margin-top:0.5rem;">
+        <div class="threat-label-row">
+          <span class="threat-label">Estrés térmico</span>
+          <span class="threat-val" style="color:${threatColor(c.threats.temperature)}">${c.threats.temperature}%</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" id="b2" style="width:0%;background:${threatColor(c.threats.temperature)}"></div>
+        </div>
+      </div>
+
+      <div class="threat-bar" style="margin-top:0.5rem;">
+        <div class="threat-label-row">
+          <span class="threat-label">Pérdida biodiversidad</span>
+          <span class="threat-val" style="color:${threatColor(c.threats.biodiversity_loss)}">${c.threats.biodiversity_loss}%</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" id="b3" style="width:0%;background:${threatColor(c.threats.biodiversity_loss)}"></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Animate bars
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      document.getElementById('b1').style.width = c.threats.deforestation + '%';
+      document.getElementById('b2').style.width = c.threats.temperature + '%';
+      document.getElementById('b3').style.width = c.threats.biodiversity_loss + '%';
+    }, 50);
+  });
+}
+
+// ══════════════════════════════════════════════
+// LEGEND
+// ══════════════════════════════════════════════
+const legendEl = document.getElementById('legend');
+LEGENDS.forEach(([key, label]) => {
+  const c = CLIMATES[key];
+  const div = document.createElement('div');
+  div.className = 'legend-item';
+  div.innerHTML = `<div class="legend-dot" style="background:${c.color}"></div><span class="legend-name">${label}</span>`;
+  div.onclick = () => {
+    // Highlight all countries of this climate
+    d3.selectAll('.country-path')
+      .style('opacity', d => COUNTRY_CLIMATE[+d.id] === key ? 1 : 0.2);
+    document.getElementById('default-content').style.display = 'none';
+    const cc = document.getElementById('country-content');
+    cc.style.display = 'block';
+    cc.innerHTML = `
+      <div style="margin-bottom:1rem;">
+        <p style="font-family:'DM Mono',monospace;font-size:0.65rem;letter-spacing:0.15em;color:var(--green);text-transform:uppercase;margin-bottom:0.25rem;">// zona climática</p>
+        <div class="panel-title">${c.name}</div>
+        <span class="climate-badge" style="background:${c.color}22;color:${c.color};border:1px solid ${c.color}44;">${c.emoji} ${c.name}</span>
+        <p style="font-size:0.83rem;color:var(--text-dim);line-height:1.65;">${c.description}</p>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-label">// Fauna</div>
+        <div class="species-grid">${c.fauna.map(f=>`<div class="species-item"><span class="species-icon">${f.icon}</span><span>${f.name}</span></div>`).join('')}</div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-label">// Flora</div>
+        <div class="species-grid">${c.flora.map(f=>`<div class="species-item"><span class="species-icon">${f.icon}</span><span>${f.name}</span></div>`).join('')}</div>
+      </div>
+      <p style="font-size:0.75rem;color:var(--text-dim);font-family:'DM Mono',monospace;margin-top:0.5rem;">Haz clic en un país del mapa para ver su información específica.</p>
+    `;
+  };
+  legendEl.appendChild(div);
+});
+
+// Reset opacity on map click
+svgEl.addEventListener('click', () => {
+  d3.selectAll('.country-path').style('opacity', null);
+});
+
+initMap().catch(e => {
+  document.getElementById('loading').innerHTML = `
+    <div style="color:#ff4d4d;font-family:'DM Mono',monospace;font-size:0.75rem;text-align:center;padding:1rem;">
+      ⚠️ Error cargando el mapa.<br>Verifica tu conexión a internet.
+    </div>
+  `;
+});
+</script>
+</body>
+</html>

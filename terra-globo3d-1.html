@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TERRA — Globo 3D Interactivo</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<style>
+:root {
+  --bg:#020810; --cyan:#00f0ff; --green:#39ff14; --amber:#ffcc00;
+  --red:#ff3860; --purple:#cc44ff; --text:#cce8ff; --dim:#2a5070;
+  --panel:rgba(4,14,28,0.96); --border:rgba(0,240,255,0.15);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:'Syne',sans-serif;color:var(--text);}
+
+/* NAV */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:400;
+  height:52px;padding:0 1.5rem;
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(2,8,16,0.88);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+}
+.logo{font-family:'Bebas Neue';font-size:1.5rem;letter-spacing:.12em;color:var(--cyan);text-shadow:0 0 20px rgba(0,240,255,.4);}
+.logo span{color:var(--green);}
+.nav-links{display:flex;gap:.5rem;}
+.nav-link{font-family:'DM Mono';font-size:.65rem;letter-spacing:.1em;color:var(--dim);text-decoration:none;padding:.3rem .8rem;border:1px solid transparent;border-radius:.25rem;transition:all .2s;}
+.nav-link:hover,.nav-link.active{color:var(--cyan);border-color:var(--border);}
+
+/* CANVAS */
+#globe-canvas{position:fixed;top:52px;left:0;right:0;bottom:0;width:100%;height:calc(100%-52px);display:block;cursor:grab;}
+#globe-canvas:active{cursor:grabbing;}
+
+/* LOADING */
+#loading{
+  position:fixed;inset:0;z-index:500;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;
+}
+.load-logo{font-family:'Bebas Neue';font-size:5rem;letter-spacing:.1em;color:var(--cyan);text-shadow:0 0 60px rgba(0,240,255,.4);line-height:1;}
+.load-sub{font-family:'DM Mono';font-size:.7rem;letter-spacing:.25em;color:var(--dim);text-transform:uppercase;}
+.load-bar-wrap{width:200px;height:2px;background:rgba(0,240,255,.1);border-radius:1px;overflow:hidden;}
+.load-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--cyan),var(--green));border-radius:1px;transition:width .4s ease;}
+
+/* INFO PANEL */
+#info-panel{
+  position:fixed;right:0;top:52px;bottom:0;width:360px;z-index:300;
+  background:var(--panel);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;overflow-y:auto;
+  transform:translateX(100%);transition:transform .4s cubic-bezier(.16,1,.3,1);
+  scrollbar-width:thin;scrollbar-color:var(--dim) transparent;
+}
+#info-panel.open{transform:translateX(0);}
+
+.panel-header{
+  padding:1.5rem 1.25rem 1rem;border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:var(--panel);z-index:2;
+}
+.panel-close{
+  position:absolute;right:1rem;top:1rem;
+  background:transparent;border:1px solid var(--border);color:var(--dim);
+  width:28px;height:28px;border-radius:.25rem;cursor:pointer;font-size:.8rem;
+  transition:all .2s;display:flex;align-items:center;justify-content:center;
+}
+.panel-close:hover{border-color:var(--red);color:var(--red);}
+.panel-biome-icon{font-size:2.5rem;margin-bottom:.5rem;}
+.panel-biome-name{font-family:'Bebas Neue';font-size:1.8rem;letter-spacing:.05em;line-height:1;}
+.panel-location{font-family:'DM Mono';font-size:.65rem;letter-spacing:.1em;color:var(--dim);margin-top:.2rem;}
+.climate-chip{
+  display:inline-flex;align-items:center;gap:.35rem;
+  font-family:'DM Mono';font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:.25rem .75rem;border-radius:2rem;margin-top:.5rem;
+}
+
+.panel-body{padding:1.25rem;display:flex;flex-direction:column;gap:1.25rem;}
+
+.panel-sec-label{
+  font-family:'DM Mono';font-size:.6rem;letter-spacing:.18em;
+  color:var(--cyan);text-transform:uppercase;margin-bottom:.5rem;
+  display:flex;align-items:center;gap:.3rem;
+}
+.panel-sec-label::before{content:'//';color:var(--dim);}
+
+.desc-text{font-size:.82rem;line-height:1.7;color:#8aaabf;}
+
+.stats-row{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;}
+.stat-box{background:rgba(0,240,255,.04);border:1px solid var(--border);border-radius:.5rem;padding:.65rem .75rem;text-align:center;}
+.stat-val{font-family:'Bebas Neue';font-size:1.1rem;color:var(--cyan);display:block;line-height:1;}
+.stat-lbl{font-family:'DM Mono';font-size:.55rem;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;margin-top:.15rem;}
+
+.species-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;}
+.sp-item{
+  background:rgba(255,255,255,.02);border:1px solid var(--border);
+  border-radius:.4rem;padding:.5rem .65rem;
+  display:flex;align-items:center;gap:.4rem;font-size:.75rem;
+}
+.sp-em{font-size:1.1rem;flex-shrink:0;}
+
+.threat-row{display:flex;flex-direction:column;gap:.5rem;}
+.t-item .t-head{display:flex;justify-content:space-between;margin-bottom:.25rem;}
+.t-label{font-size:.72rem;}
+.t-pct{font-family:'DM Mono';font-size:.65rem;}
+.t-bar{height:4px;background:rgba(255,255,255,.05);border-radius:2px;overflow:hidden;}
+.t-fill{height:100%;border-radius:2px;transition:width 1s cubic-bezier(.16,1,.3,1);}
+
+/* LEGEND */
+#legend{
+  position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);z-index:300;
+  background:rgba(2,8,16,.92);backdrop-filter:blur(16px);
+  border:1px solid var(--border);border-radius:.5rem;padding:.65rem 1rem;
+  display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;max-width:700px;
+}
+.leg-item{
+  display:flex;align-items:center;gap:.3rem;cursor:pointer;
+  padding:.2rem .5rem;border-radius:.25rem;transition:background .2s;
+}
+.leg-item:hover{background:rgba(0,240,255,.06);}
+.leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.leg-name{font-family:'DM Mono';font-size:.58rem;color:var(--dim);letter-spacing:.06em;}
+
+/* HINTS */
+#hints{
+  position:fixed;left:1rem;bottom:4.5rem;z-index:300;
+  display:flex;flex-direction:column;gap:.35rem;
+}
+.hint{font-family:'DM Mono';font-size:.6rem;color:var(--dim);letter-spacing:.08em;display:flex;align-items:center;gap:.4rem;}
+.hint-key{background:rgba(0,240,255,.06);border:1px solid var(--border);padding:.15rem .4rem;border-radius:.2rem;color:var(--cyan);}
+
+/* COORD DISPLAY */
+#coords{
+  position:fixed;left:1rem;top:3.5rem;z-index:300;
+  font-family:'DM Mono';font-size:.6rem;color:var(--dim);letter-spacing:.08em;
+  background:rgba(2,8,16,.7);padding:.3rem .6rem;border-radius:.25rem;border:1px solid var(--border);
+}
+
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pulse{0%,100%{opacity:.6;transform:scale(1)}50%{opacity:1;transform:scale(1.15)}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">TERRA <span>3D</span></div>
+  <div class="nav-links">
+    <a href="terra-dashboard.html" class="nav-link">📊 IMPACTO</a>
+    <a href="terra-quest.html" class="nav-link">🎮 QUEST</a>
+    <a href="terra-mapa.html" class="nav-link">🗺️ MAPA 2D</a>
+    <a href="terra-ai.html" class="nav-link">🌿 TERRA IA</a>
+  </div>
+</nav>
+
+<div id="loading">
+  <div class="load-logo">TERRA</div>
+  <div class="load-sub">Construyendo el globo terrestre · Por favor espera</div>
+  <div class="load-bar-wrap"><div class="load-bar" id="load-bar"></div></div>
+  <div style="font-family:'DM Mono';font-size:.6rem;color:var(--dim);margin-top:.5rem" id="load-status">Iniciando...</div>
+</div>
+
+<canvas id="globe-canvas"></canvas>
+
+<div id="coords">LAT — · LON —</div>
+
+<!-- INFO PANEL -->
+<div id="info-panel">
+  <div class="panel-header">
+    <button class="panel-close" onclick="closePanel()">✕</button>
+    <div class="panel-biome-icon" id="p-icon">🌍</div>
+    <div class="panel-biome-name" id="p-name">Selecciona un bioma</div>
+    <div class="panel-location" id="p-loc">Haz clic en un marcador del globo</div>
+    <div class="climate-chip" id="p-chip"></div>
+  </div>
+  <div class="panel-body" id="p-body"></div>
+</div>
+
+<!-- LEGEND -->
+<div id="legend"></div>
+
+<!-- HINTS -->
+<div id="hints">
+  <div class="hint"><span class="hint-key">DRAG</span> Rotar el globo</div>
+  <div class="hint"><span class="hint-key">SCROLL</span> Zoom</div>
+  <div class="hint"><span class="hint-key">CLICK</span> Ver bioma</div>
+</div>
+
+<script>
+// ════════════════════════════════════════
+// CLIMATE DATA
+// ════════════════════════════════════════
+const CLIMATES = {
+  tropical_rainforest:{name:'Selva Tropical',color:'#1db954',hex:0x1db954,emoji:'🌴',temp:'24–30°C',rain:'> 2000 mm/año',
+    desc:'La zona más biodiversa del planeta. Calor y humedad constante. Alberga más del 50% de las especies terrestres conocidas.',
+    fauna:[{e:'🦜',n:'Guacamayo'},{e:'🐆',n:'Jaguar'},{e:'🦋',n:'Morpho Azul'},{e:'🦥',n:'Perezoso'},{e:'🐍',n:'Anaconda'},{e:'🐸',n:'Rana Dardo'}],
+    flora:[{e:'🌳',n:'Ceiba'},{e:'🌺',n:'Orquídea'},{e:'🌿',n:'Helecho Arborescente'},{e:'🍀',n:'Bromelia'}],
+    threats:{d:82,t:65,b:75}},
+  tropical_savanna:{name:'Sabana Tropical',color:'#8bc34a',hex:0x8bc34a,emoji:'🦁',temp:'20–32°C',rain:'600–1600 mm/año',
+    desc:'Praderas tropicales con estación seca marcada. Hogar de la megafauna africana más icónica del planeta.',
+    fauna:[{e:'🦁',n:'León'},{e:'🐘',n:'Elefante'},{e:'🦒',n:'Jirafa'},{e:'🦓',n:'Cebra'},{e:'🦏',n:'Rinoceronte'},{e:'🦮',n:'Guepardo'}],
+    flora:[{e:'🌳',n:'Acacia'},{e:'🌴',n:'Baobab'},{e:'🌾',n:'Andropogon'},{e:'🌿',n:'Commiphora'}],
+    threats:{d:60,t:72,b:55}},
+  desert:{name:'Desierto',color:'#e6a817',hex:0xe6a817,emoji:'🌵',temp:'−10 a 50°C',rain:'< 250 mm/año',
+    desc:'Las regiones más áridas del mundo. Variaciones extremas entre noche y día. Adaptaciones extraordinarias de vida.',
+    fauna:[{e:'🦂',n:'Escorpión'},{e:'🐪',n:'Camello'},{e:'🦎',n:'Lagarto Cornudo'},{e:'🐍',n:'Serpiente Cornuda'},{e:'🦅',n:'Halcón Peregrino'},{e:'🐾',n:'Fennec'}],
+    flora:[{e:'🌵',n:'Saguaro'},{e:'🌿',n:'Jojoba'},{e:'🪨',n:'Lithops'},{e:'🌱',n:'Retama'}],
+    threats:{d:15,t:95,b:40}},
+  mediterranean:{name:'Mediterráneo',color:'#a8c84a',hex:0xa8c84a,emoji:'🫒',temp:'10–25°C',rain:'300–900 mm/año',
+    desc:'Veranos secos y calurosos, inviernos suaves. Alta biodiversidad de flora. Muy amenazado por urbanización y sequía.',
+    fauna:[{e:'🦎',n:'Lagarto Verde'},{e:'🦅',n:'Águila Real'},{e:'🐺',n:'Lobo Ibérico'},{e:'🐟',n:'Atún Rojo'},{e:'🦔',n:'Erizo'},{e:'🦋',n:'Apolo'}],
+    flora:[{e:'🫒',n:'Olivo'},{e:'🌿',n:'Romero'},{e:'🌳',n:'Encina'},{e:'🌸',n:'Lavanda'}],
+    threats:{d:45,t:80,b:65}},
+  temperate:{name:'Templado Oceánico',color:'#4caf7d',hex:0x4caf7d,emoji:'🌲',temp:'5–20°C',rain:'600–1500 mm/año',
+    desc:'Clima suave con lluvias todo el año. Bosques caducifolios. Alta densidad humana ha reducido ecosistemas naturales.',
+    fauna:[{e:'🦊',n:'Zorro Rojo'},{e:'🦉',n:'Búho Común'},{e:'🐿️',n:'Ardilla'},{e:'🦌',n:'Ciervo'},{e:'🐗',n:'Jabalí'},{e:'🦫',n:'Castor'}],
+    flora:[{e:'🍂',n:'Roble'},{e:'🌳',n:'Haya'},{e:'🍁',n:'Arce'},{e:'🌿',n:'Helechos'}],
+    threats:{d:55,t:60,b:60}},
+  continental:{name:'Continental',color:'#2e86ab',hex:0x2e86ab,emoji:'🌾',temp:'−20 a 25°C',rain:'300–600 mm/año',
+    desc:'Grandes variaciones estacionales. Veranos calurosos e inviernos crudos. Amplias estepas productoras de cereales.',
+    fauna:[{e:'🦬',n:'Bisonte'},{e:'🐺',n:'Lobo Gris'},{e:'🦅',n:'Águila Dorada'},{e:'🦌',n:'Alce'},{e:'🐻',n:'Oso Pardo'},{e:'🦊',n:'Zorro Ártico'}],
+    flora:[{e:'🌾',n:'Estepa'},{e:'🌳',n:'Abedul'},{e:'🌿',n:'Artemisia'},{e:'🍀',n:'Festuca'}],
+    threats:{d:40,t:70,b:45}},
+  boreal:{name:'Boreal / Taiga',color:'#1565a0',hex:0x1565a0,emoji:'🌲',temp:'−40 a 20°C',rain:'200–600 mm/año',
+    desc:'El bosque más extenso del planeta. Coníferas dominan el paisaje. Almacén crucial de carbono global amenazado por el deshielo.',
+    fauna:[{e:'🐺',n:'Lobo Siberiano'},{e:'🐻',n:'Oso Pardo'},{e:'🦌',n:'Reno'},{e:'🦅',n:'Águila Pescadora'},{e:'🦫',n:'Castor'},{e:'🦉',n:'Búho Nival'}],
+    flora:[{e:'🌲',n:'Pino Silvestre'},{e:'🌲',n:'Abeto Noruega'},{e:'🌳',n:'Alerce Siberiano'},{e:'🌿',n:'Musgo Sphagnum'}],
+    threats:{d:48,t:85,b:50}},
+  tundra:{name:'Tundra / Ártico',color:'#78909c',hex:0x78909c,emoji:'🧊',temp:'−30 a 10°C',rain:'< 250 mm/año',
+    desc:'Permafrost permanente bajo el suelo. El deshielo libera metano acelerando el cambio climático. Ecosistema en colapso.',
+    fauna:[{e:'🐻‍❄️',n:'Oso Polar'},{e:'🦌',n:'Caribú'},{e:'🐺',n:'Lobo Ártico'},{e:'🦊',n:'Zorro Ártico'},{e:'🦭',n:'Foca'},{e:'🐦',n:'Chorlito'}],
+    flora:[{e:'🌿',n:'Musgo Ártico'},{e:'🌸',n:'Saxífraga'},{e:'🌱',n:'Liquen de Reno'},{e:'🍀',n:'Algodón Ártico'}],
+    threats:{d:10,t:98,b:70}},
+  polar:{name:'Polar / Glacial',color:'#b0bec5',hex:0xb0bec5,emoji:'❄️',temp:'< −10°C',rain:'< 200 mm/año',
+    desc:'Las regiones más frías de la Tierra. El derretimiento de los polos es el termómetro más visible del calentamiento global.',
+    fauna:[{e:'🐧',n:'Pingüino Emperador'},{e:'🦭',n:'Elefante Marino'},{e:'🐋',n:'Ballena Azul'},{e:'🐟',n:'Krill'},{e:'🐦',n:'Petrel'},{e:'🦭',n:'Leopardo Marino'}],
+    flora:[{e:'🌿',n:'Musgo Antártico'},{e:'🍀',n:'Liquen Polar'},{e:'🌱',n:'Pasto Antártico'},{e:'🌊',n:'Algas Glaciales'}],
+    threats:{d:5,t:100,b:60}},
+  monsoon:{name:'Monzónico',color:'#00897b',hex:0x00897b,emoji:'🌧️',temp:'18–35°C',rain:'1000–3000 mm/año',
+    desc:'Vientos estacionales que traen lluvias torrenciales. Sustenta a más de 2 mil millones de personas. Muy sensible al clima.',
+    fauna:[{e:'🐯',n:'Tigre Bengala'},{e:'🐘',n:'Elefante Asiático'},{e:'🦚',n:'Pavo Real'},{e:'🐊',n:'Cocodrilo Ganges'},{e:'🦜',n:'Loro'},{e:'🐒',n:'Macaco'}],
+    flora:[{e:'🌴',n:'Teca'},{e:'🎋',n:'Bambú Gigante'},{e:'🌸',n:'Loto'},{e:'🌿',n:'Neem'}],
+    threats:{d:70,t:78,b:72}},
+  subtropical:{name:'Subtropical Húmedo',color:'#66bb6a',hex:0x66bb6a,emoji:'🌿',temp:'15–28°C',rain:'800–1600 mm/año',
+    desc:'Veranos calurosos y húmedos, inviernos suaves. Mezcla de bosques templados y tropicales. Alta diversidad de aves.',
+    fauna:[{e:'🐊',n:'Caimán'},{e:'🦅',n:'Buitre Americano'},{e:'🐢',n:'Tortuga de Caja'},{e:'🦜',n:'Loro'},{e:'🦌',n:'Venado Cola Blanca'},{e:'🐍',n:'Serpiente del Maíz'}],
+    flora:[{e:'🌳',n:'Magnolia'},{e:'🌿',n:'Kudzu'},{e:'🌴',n:'Palmito'},{e:'🍁',n:'Cipres Calvo'}],
+    threats:{d:65,t:68,b:60}},
+  highland:{name:'Montaña / Highland',color:'#8d6e63',hex:0x8d6e63,emoji:'🏔️',temp:'−5 a 15°C',rain:'Variable',
+    desc:'Ecosistemas de alta montaña con variación extrema por altitud. Hotspots de endemismo. Glaciares que abastecen millones.',
+    fauna:[{e:'🦙',n:'Vicuña'},{e:'🦅',n:'Cóndor Andino'},{e:'🐆',n:'Puma'},{e:'🦁',n:'Leopardo de Nieves'},{e:'🐻‍❄️',n:'Oso Anteojos'},{e:'🦌',n:'Taruka'}],
+    flora:[{e:'🌿',n:'Paja Brava'},{e:'🌸',n:'Polylepis'},{e:'🌺',n:'Puya Raimondii'},{e:'🍀',n:'Musgo Andino'}],
+    threats:{d:35,t:88,b:55}},
+};
+
+const COUNTRY_CLIMATE = {
+  76:'tropical_rainforest',170:'tropical_rainforest',218:'highland',862:'tropical_savanna',
+  604:'highland',68:'highland',32:'subtropical',858:'subtropical',600:'subtropical',
+  152:'desert',840:'continental',484:'subtropical',724:'mediterranean',380:'mediterranean',
+  300:'mediterranean',250:'temperate',276:'temperate',826:'temperate',528:'temperate',
+  56:'temperate',756:'temperate',40:'temperate',208:'temperate',616:'continental',
+  804:'continental',578:'boreal',752:'boreal',246:'boreal',233:'boreal',
+  12:'desert',818:'desert',434:'desert',504:'mediterranean',729:'desert',788:'mediterranean',
+  566:'tropical_savanna',404:'tropical_savanna',834:'tropical_savanna',800:'tropical_savanna',
+  508:'tropical_savanna',716:'tropical_savanna',710:'subtropical',180:'tropical_rainforest',
+  266:'tropical_rainforest',356:'monsoon',50:'monsoon',144:'monsoon',104:'monsoon',
+  764:'monsoon',116:'monsoon',458:'monsoon',608:'monsoon',524:'highland',64:'highland',
+  643:'boreal',156:'continental',496:'continental',792:'continental',682:'desert',
+  784:'desert',400:'desert',887:'desert',364:'desert',392:'temperate',410:'temperate',
+  36:'desert',554:'temperate',304:'tundra',352:'tundra',10:'polar',124:'boreal',
+};
+
+// MARKERS: {lat, lon, biome, label}
+const MARKERS = [
+  {lat:-5,  lon:-60,  biome:'tropical_rainforest', label:'Amazonia, Brasil'},
+  {lat:0,   lon:24,   biome:'tropical_rainforest', label:'Congo, África'},
+  {lat:5,   lon:110,  biome:'tropical_rainforest', label:'Borneo, SE Asia'},
+  {lat:-5,  lon:37,   biome:'tropical_savanna',    label:'Serengeti, Tanzania'},
+  {lat:10,  lon:-5,   biome:'tropical_savanna',    label:'Sahel, África Occ.'},
+  {lat:-20, lon:135,  biome:'tropical_savanna',    label:'Outback, Australia'},
+  {lat:23,  lon:15,   biome:'desert',              label:'Gran Sahara'},
+  {lat:-23, lon:-68,  biome:'desert',              label:'Atacama, Chile'},
+  {lat:25,  lon:50,   biome:'desert',              label:'Desierto Arábigo'},
+  {lat:40,  lon:15,   biome:'mediterranean',       label:'Mar Mediterráneo'},
+  {lat:-33, lon:18,   biome:'mediterranean',       label:'Ciudad del Cabo, SA'},
+  {lat:50,  lon:10,   biome:'temperate',           label:'Europa Occidental'},
+  {lat:47,  lon:-122, biome:'temperate',           label:'Pac. Noroeste, EEUU'},
+  {lat:-43, lon:172,  biome:'temperate',           label:'Nueva Zelanda'},
+  {lat:55,  lon:60,   biome:'continental',         label:'Estepa Rusa'},
+  {lat:42,  lon:-95,  biome:'continental',         label:'Grandes Planicies, EEUU'},
+  {lat:60,  lon:90,   biome:'boreal',              label:'Siberia, Rusia'},
+  {lat:55,  lon:-100, biome:'boreal',              label:'Taiga Canadiense'},
+  {lat:73,  lon:20,   biome:'tundra',              label:'Svalbard, Ártico'},
+  {lat:70,  lon:-50,  biome:'tundra',              label:'Groenlandia'},
+  {lat:-80, lon:0,    biome:'polar',               label:'Antártida'},
+  {lat:20,  lon:80,   biome:'monsoon',             label:'Subcontinente Indio'},
+  {lat:15,  lon:105,  biome:'monsoon',             label:'Indochina'},
+  {lat:30,  lon:-85,  biome:'subtropical',         label:'SE Estados Unidos'},
+  {lat:-25, lon:-50,  biome:'subtropical',         label:'SE Brasil'},
+  {lat:-15, lon:-70,  biome:'highland',            label:'Andes Centrales'},
+  {lat:30,  lon:85,   biome:'highland',            label:'Himalaya'},
+  {lat:10,  lon:38,   biome:'highland',            label:'Etiopía, Cuerno África'},
+];
+
+// ════════════════════════════════════════
+// THREE.JS GLOBE
+// ════════════════════════════════════════
+let scene, camera, renderer, globe, atmosphere, starField;
+let markers3D = [];
+let isRotating = true;
+let mouse = new THREE.Vector2();
+let raycaster = new THREE.Raycaster();
+let isDragging = false, prevMouse = {x:0,y:0};
+let targetRotX = 0, targetRotY = 0, currentRotX = 0.2, currentRotY = 0;
+let autoRotY = 0;
+let zoom = 5, targetZoom = 5;
+let hoveredMarker = null, selectedMarker = null;
+let loadProgress = 0;
+
+function setLoad(pct, msg) {
+  document.getElementById('load-bar').style.width = pct + '%';
+  document.getElementById('load-status').textContent = msg;
+}
+
+function latLonToXYZ(lat, lon, r) {
+  const latR = lat * Math.PI / 180;
+  const lonR = lon * Math.PI / 180;
+  return new THREE.Vector3(
+    r * Math.cos(latR) * Math.sin(lonR),
+    r * Math.sin(latR),
+    r * Math.cos(latR) * Math.cos(lonR)
+  );
+}
+
+async function init() {
+  setLoad(10, 'Iniciando escena 3D...');
+
+  // Scene
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 0, 5);
+
+  renderer = new THREE.WebGLRenderer({canvas: document.getElementById('globe-canvas'), antialias:true, alpha:true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(0x000000, 0);
+
+  // Lights
+  const ambient = new THREE.AmbientLight(0x112233, 2.5);
+  scene.add(ambient);
+  const sun = new THREE.DirectionalLight(0x88ccff, 3.5);
+  sun.position.set(5, 3, 5);
+  scene.add(sun);
+  const rim = new THREE.DirectionalLight(0x003355, 1.5);
+  rim.position.set(-5, -2, -3);
+  scene.add(rim);
+
+  setLoad(20, 'Generando estrellascias...');
+  buildStars();
+
+  setLoad(35, 'Descargando datos geográficos...');
+  let world;
+  try {
+    world = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+  } catch(e) {
+    world = null;
+  }
+
+  setLoad(55, 'Pintando zonas climáticas...');
+  const texture = await buildGlobeTexture(world);
+
+  setLoad(75, 'Construyendo globo 3D...');
+  buildGlobe(texture);
+  buildAtmosphere();
+  buildMarkers();
+
+  setLoad(95, 'Conectando controles...');
+  buildLegend();
+  setupControls();
+
+  setLoad(100, '¡Listo!');
+  setTimeout(() => {
+    document.getElementById('loading').style.opacity = '0';
+    document.getElementById('loading').style.transition = 'opacity .5s ease';
+    setTimeout(() => document.getElementById('loading').style.display = 'none', 500);
+  }, 300);
+
+  animate();
+}
+
+function buildStars() {
+  const geo = new THREE.BufferGeometry();
+  const positions = [];
+  for(let i = 0; i < 8000; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    const r = 80 + Math.random() * 120;
+    positions.push(
+      r * Math.sin(phi) * Math.cos(theta),
+      r * Math.sin(phi) * Math.sin(theta),
+      r * Math.cos(phi)
+    );
+  }
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  const mat = new THREE.PointsMaterial({color:0xaaccff, size:0.12, transparent:true, opacity:0.8});
+  starField = new THREE.Points(geo, mat);
+  scene.add(starField);
+}
+
+async function buildGlobeTexture(world) {
+  const W = 2048, H = 1024;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // Ocean
+  const oceanGrad = ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,W/2);
+  oceanGrad.addColorStop(0,'#0a2545');
+  oceanGrad.addColorStop(1,'#041228');
+  ctx.fillStyle = oceanGrad;
+  ctx.fillRect(0,0,W,H);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(0,150,200,0.08)';
+  ctx.lineWidth = 0.8;
+  for(let lat = -80; lat <= 80; lat += 20) {
+    const y = H - ((lat + 90) / 180 * H);
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+  }
+  for(let lon = -180; lon <= 180; lon += 20) {
+    const x = (lon + 180) / 360 * W;
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+  }
+
+  if(world) {
+    const countries = topojson.feature(world, world.objects.countries);
+    const borders = topojson.mesh(world, world.objects.countries, (a,b)=>a!==b);
+
+    const proj = d3.geoEquirectangular()
+      .scale(W / (2 * Math.PI))
+      .translate([W/2, H/2]);
+    const path = d3.geoPath(proj, ctx);
+
+    // Fill countries by climate
+    countries.features.forEach(f => {
+      const key = COUNTRY_CLIMATE[+f.id];
+      const clim = key ? CLIMATES[key] : null;
+      const baseColor = clim ? clim.color : '#0f2840';
+      // Parse hex to rgba
+      const r = parseInt(baseColor.slice(1,3),16);
+      const g = parseInt(baseColor.slice(3,5),16);
+      const b = parseInt(baseColor.slice(5,7),16);
+      ctx.fillStyle = `rgba(${r},${g},${b},0.55)`;
+      ctx.beginPath();
+      path(f);
+      ctx.fill();
+    });
+
+    // Country borders
+    ctx.strokeStyle = 'rgba(0,200,255,0.18)';
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    path(borders);
+    ctx.stroke();
+
+    // Coastlines (stroke)
+    ctx.strokeStyle = 'rgba(0,200,255,0.35)';
+    ctx.lineWidth = 1;
+    countries.features.forEach(f => {
+      ctx.beginPath();
+      path(f);
+      ctx.stroke();
+    });
+  } else {
+    // Fallback: simplified continents
+    ctx.fillStyle = 'rgba(30,100,50,0.5)';
+    ctx.beginPath(); ctx.ellipse(900,480,280,200,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(1100,550,180,160,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(1400,400,250,200,0,0,Math.PI*2); ctx.fill();
+  }
+
+  // Polar ice caps
+  const northIce = ctx.createRadialGradient(W/2,0,0,W/2,0,200);
+  northIce.addColorStop(0,'rgba(200,230,255,0.7)');
+  northIce.addColorStop(1,'rgba(200,230,255,0)');
+  ctx.fillStyle = northIce;
+  ctx.fillRect(0,0,W,200);
+
+  const southIce = ctx.createRadialGradient(W/2,H,0,W/2,H,200);
+  southIce.addColorStop(0,'rgba(200,230,255,0.7)');
+  southIce.addColorStop(1,'rgba(200,230,255,0)');
+  ctx.fillStyle = southIce;
+  ctx.fillRect(0,H-200,W,200);
+
+  return new THREE.CanvasTexture(canvas);
+}
+
+function buildGlobe(texture) {
+  const geo = new THREE.SphereGeometry(2, 128, 128);
+  const mat = new THREE.MeshPhongMaterial({
+    map: texture,
+    specular: new THREE.Color(0x1a4466),
+    shininess: 18,
+    emissive: new THREE.Color(0x020a18),
+    emissiveIntensity: 0.4,
+  });
+  globe = new THREE.Mesh(geo, mat);
+  scene.add(globe);
+}
+
+function buildAtmosphere() {
+  // Outer glow
+  const geo1 = new THREE.SphereGeometry(2.18, 64, 64);
+  const mat1 = new THREE.MeshBasicMaterial({
+    color: 0x0077ff, transparent:true, opacity:0.06, side:THREE.BackSide,
+  });
+  atmosphere = new THREE.Mesh(geo1, mat1);
+  scene.add(atmosphere);
+
+  // Inner haze
+  const geo2 = new THREE.SphereGeometry(2.06, 64, 64);
+  const mat2 = new THREE.MeshBasicMaterial({
+    color: 0x00aaff, transparent:true, opacity:0.04, side:THREE.FrontSide,
+  });
+  scene.add(new THREE.Mesh(geo2, mat2));
+
+  // Rim glow (additive)
+  const geo3 = new THREE.SphereGeometry(2.22, 64, 64);
+  const mat3 = new THREE.MeshBasicMaterial({
+    color: 0x004488, transparent:true, opacity:0.12, side:THREE.BackSide,
+  });
+  scene.add(new THREE.Mesh(geo3, mat3));
+}
+
+function buildMarkers() {
+  MARKERS.forEach((m, i) => {
+    const clim = CLIMATES[m.biome];
+    const pos = latLonToXYZ(m.lat, m.lon, 2.04);
+
+    // Core sphere
+    const coreGeo = new THREE.SphereGeometry(0.028, 16, 16);
+    const coreMat = new THREE.MeshBasicMaterial({color: clim.hex});
+    const core = new THREE.Mesh(coreGeo, coreMat);
+    core.position.copy(pos);
+
+    // Halo sphere
+    const haloGeo = new THREE.SphereGeometry(0.055, 16, 16);
+    const haloMat = new THREE.MeshBasicMaterial({color: clim.hex, transparent:true, opacity:0.25});
+    const halo = new THREE.Mesh(haloGeo, haloMat);
+    halo.position.copy(pos);
+
+    // Ring
+    const ringGeo = new THREE.RingGeometry(0.06, 0.075, 32);
+    const ringMat = new THREE.MeshBasicMaterial({color: clim.hex, transparent:true, opacity:0.4, side:THREE.DoubleSide});
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.position.copy(pos);
+    ring.lookAt(new THREE.Vector3(0,0,0));
+
+    // Spike line to center
+    const spikeGeo = new THREE.CylinderGeometry(0.004, 0.004, 0.08, 6);
+    const spikeMat = new THREE.MeshBasicMaterial({color: clim.hex, transparent:true, opacity:0.5});
+    const spike = new THREE.Mesh(spikeGeo, spikeMat);
+    const dir = pos.clone().normalize();
+    spike.position.copy(dir.multiplyScalar(2.08));
+    spike.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+
+    scene.add(core);
+    scene.add(halo);
+    scene.add(ring);
+    scene.add(spike);
+
+    markers3D.push({
+      core, halo, ring, spike,
+      data: m, index: i,
+      baseColor: clim.hex,
+      phaseOffset: i * 0.4,
+    });
+  });
+}
+
+function buildLegend() {
+  const leg = document.getElementById('legend');
+  Object.entries(CLIMATES).forEach(([key, c]) => {
+    const div = document.createElement('div');
+    div.className = 'leg-item';
+    div.innerHTML = `<div class="leg-dot" style="background:${c.color}"></div><span class="leg-name">${c.emoji} ${c.name}</span>`;
+    div.onclick = () => {
+      const m = MARKERS.find(x => x.biome === key);
+      if(m) {
+        const idx = MARKERS.indexOf(m);
+        openPanel(markers3D[idx]);
+        rotateTo(m.lat, m.lon);
+      }
+    };
+    leg.appendChild(div);
+  });
+}
+
+function rotateTo(lat, lon) {
+  isRotating = false;
+  targetRotY = -lon * Math.PI / 180;
+  targetRotX = lat * Math.PI / 180 * 0.5;
+  setTimeout(() => { isRotating = true; }, 3000);
+}
+
+// ════════════════════════════════════════
+// CONTROLS
+// ════════════════════════════════════════
+function setupControls() {
+  const canvas = document.getElementById('globe-canvas');
+
+  canvas.addEventListener('mousedown', e => {
+    isDragging = true; isRotating = false;
+    prevMouse = {x: e.clientX, y: e.clientY};
+    canvas.style.cursor = 'grabbing';
+  });
+
+  window.addEventListener('mouseup', () => {
+    isDragging = false;
+    canvas.style.cursor = 'grab';
+    setTimeout(() => { isRotating = true; }, 2000);
+  });
+
+  window.addEventListener('mousemove', e => {
+    if(isDragging) {
+      const dx = e.clientX - prevMouse.x;
+      const dy = e.clientY - prevMouse.y;
+      targetRotY += dx * 0.008;
+      targetRotX += dy * 0.006;
+      targetRotX = Math.max(-1.2, Math.min(1.2, targetRotX));
+      prevMouse = {x: e.clientX, y: e.clientY};
+      return;
+    }
+
+    // Raycasting for hover
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+    const meshes = markers3D.map(m => m.core);
+    const hits = raycaster.intersectObjects(meshes);
+
+    if(hits.length > 0) {
+      const idx = meshes.indexOf(hits[0].object);
+      if(hoveredMarker !== markers3D[idx]) {
+        hoveredMarker = markers3D[idx];
+        canvas.style.cursor = 'pointer';
+      }
+    } else {
+      hoveredMarker = null;
+      if(!isDragging) canvas.style.cursor = 'grab';
+    }
+
+    // Coordinate display
+    raycaster.setFromCamera(mouse, camera);
+    const globeHit = raycaster.intersectObject(globe);
+    if(globeHit.length > 0) {
+      const p = globeHit[0].point.normalize();
+      const lat = Math.asin(p.y) * 180 / Math.PI;
+      const lon = Math.atan2(p.x, p.z) * 180 / Math.PI;
+      document.getElementById('coords').textContent =
+        `LAT ${lat.toFixed(1)}° · LON ${lon.toFixed(1)}°`;
+    }
+  });
+
+  canvas.addEventListener('click', e => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const meshes = markers3D.map(m => m.core);
+    const hits = raycaster.intersectObjects(meshes);
+    if(hits.length > 0) {
+      const idx = meshes.indexOf(hits[0].object);
+      openPanel(markers3D[idx]);
+    }
+  });
+
+  // Touch support
+  let lastTouch = null;
+  canvas.addEventListener('touchstart', e => {
+    isDragging = true; isRotating = false;
+    lastTouch = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+  }, {passive:true});
+  canvas.addEventListener('touchmove', e => {
+    if(!lastTouch) return;
+    const dx = e.touches[0].clientX - lastTouch.x;
+    const dy = e.touches[0].clientY - lastTouch.y;
+    targetRotY += dx * 0.008;
+    targetRotX += dy * 0.006;
+    targetRotX = Math.max(-1.2, Math.min(1.2, targetRotX));
+    lastTouch = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+  }, {passive:true});
+  canvas.addEventListener('touchend', () => {
+    isDragging = false;
+    lastTouch = null;
+    setTimeout(() => { isRotating = true; }, 2000);
+  });
+
+  // Zoom
+  canvas.addEventListener('wheel', e => {
+    targetZoom = Math.max(2.8, Math.min(8, targetZoom + e.deltaY * 0.004));
+  }, {passive:true});
+
+  // Resize
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+}
+
+// ════════════════════════════════════════
+// PANEL
+// ════════════════════════════════════════
+function openPanel(marker) {
+  selectedMarker = marker;
+  const m = marker.data;
+  const c = CLIMATES[m.biome];
+
+  document.getElementById('p-icon').textContent = c.emoji;
+  document.getElementById('p-name').textContent = c.name;
+  document.getElementById('p-loc').textContent = `📍 ${m.label}`;
+
+  const chip = document.getElementById('p-chip');
+  chip.textContent = `${c.emoji} ${c.name}`;
+  chip.style.cssText = `background:${c.color}18;color:${c.color};border:1px solid ${c.color}44;display:inline-flex;align-items:center;gap:.35rem;font-family:'DM Mono';font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;padding:.25rem .75rem;border-radius:2rem;margin-top:.5rem;`;
+
+  const threatColor = v => v>=80?'#ff3860':v>=60?'#ffcc00':'#39ff14';
+
+  document.getElementById('p-body').innerHTML = `
+    <div>
+      <div class="panel-sec-label">Descripción</div>
+      <p class="desc-text">${c.desc}</p>
+    </div>
+    <div class="stats-row">
+      <div class="stat-box"><span class="stat-val">${c.temp}</span><span class="stat-lbl">Temperatura</span></div>
+      <div class="stat-box"><span class="stat-val" style="font-size:.8rem">${c.rain}</span><span class="stat-lbl">Precipitación</span></div>
+    </div>
+    <div>
+      <div class="panel-sec-label">Fauna Representativa</div>
+      <div class="species-grid">${c.fauna.map(f=>`<div class="sp-item"><span class="sp-em">${f.e}</span>${f.n}</div>`).join('')}</div>
+    </div>
+    <div>
+      <div class="panel-sec-label">Flora Característica</div>
+      <div class="species-grid">${c.flora.map(f=>`<div class="sp-item"><span class="sp-em">${f.e}</span>${f.n}</div>`).join('')}</div>
+    </div>
+    <div>
+      <div class="panel-sec-label">Alertas Ambientales</div>
+      <div class="threat-row">
+        <div class="t-item">
+          <div class="t-head"><span class="t-label">🌳 Deforestación</span><span class="t-pct" style="color:${threatColor(c.threats.d)}">${c.threats.d}%</span></div>
+          <div class="t-bar"><div class="t-fill" id="tb1" style="width:0%;background:${threatColor(c.threats.d)}"></div></div>
+        </div>
+        <div class="t-item" style="margin-top:.4rem">
+          <div class="t-head"><span class="t-label">🌡️ Estrés Térmico</span><span class="t-pct" style="color:${threatColor(c.threats.t)}">${c.threats.t}%</span></div>
+          <div class="t-bar"><div class="t-fill" id="tb2" style="width:0%;background:${threatColor(c.threats.t)}"></div></div>
+        </div>
+        <div class="t-item" style="margin-top:.4rem">
+          <div class="t-head"><span class="t-label">🦁 Pérdida Biodiversidad</span><span class="t-pct" style="color:${threatColor(c.threats.b)}">${c.threats.b}%</span></div>
+          <div class="t-bar"><div class="t-fill" id="tb3" style="width:0%;background:${threatColor(c.threats.b)}"></div></div>
+        </div>
+      </div>
+    </div>
+    <a href="terra-quest.html" style="display:block;background:${c.color};color:#020810;text-align:center;padding:.85rem;border-radius:.4rem;font-family:'Bebas Neue';font-size:1.1rem;letter-spacing:.1em;text-decoration:none;transition:all .2s;margin-top:.5rem" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+      JUGAR MISIÓN DE ESTE BIOMA →
+    </a>
+  `;
+
+  document.getElementById('info-panel').classList.add('open');
+
+  requestAnimationFrame(() => {
+    const el1 = document.getElementById('tb1');
+    const el2 = document.getElementById('tb2');
+    const el3 = document.getElementById('tb3');
+    if(el1) setTimeout(()=>{ el1.style.width=c.threats.d+'%'; el2.style.width=c.threats.t+'%'; el3.style.width=c.threats.b+'%'; }, 100);
+  });
+}
+
+function closePanel() {
+  document.getElementById('info-panel').classList.remove('open');
+  selectedMarker = null;
+}
+
+// ════════════════════════════════════════
+// ANIMATE
+// ════════════════════════════════════════
+let frame = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  frame++;
+  const t = frame * 0.016;
+
+  // Auto-rotate
+  if(isRotating && !isDragging) {
+    autoRotY += 0.0015;
+  }
+
+  // Smooth camera
+  currentRotY += (targetRotY + autoRotY - currentRotY) * 0.04;
+  currentRotX += (targetRotX - currentRotX) * 0.04;
+  zoom += (targetZoom - zoom) * 0.05;
+
+  if(globe) {
+    globe.rotation.y = currentRotY;
+    globe.rotation.x = currentRotX;
+  }
+  if(atmosphere) {
+    atmosphere.rotation.y = currentRotY * 0.98;
+    atmosphere.rotation.x = currentRotX * 0.98;
+  }
+
+  // Sync markers to globe rotation
+  markers3D.forEach((m, i) => {
+    const pulse = 0.5 + 0.5 * Math.sin(t * 2 + m.phaseOffset);
+    const isHovered = m === hoveredMarker;
+    const isSelected = m === selectedMarker;
+    const s = isHovered ? 2.2 : isSelected ? 1.8 : 1 + pulse * 0.3;
+
+    m.halo.scale.setScalar(s);
+    m.halo.material.opacity = isHovered ? 0.6 : 0.15 + pulse * 0.2;
+    m.ring.scale.setScalar(1 + pulse * 0.4);
+    m.ring.material.opacity = isHovered ? 0.8 : 0.2 + pulse * 0.25;
+    m.core.material.color.setHex(isHovered || isSelected ? 0xffffff : m.baseColor);
+
+    // Rotate markers with globe
+    [m.core, m.halo, m.ring, m.spike].forEach(obj => {
+      obj.rotation.y = currentRotY;
+      obj.rotation.x = currentRotX;
+    });
+  });
+
+  // Subtle star drift
+  if(starField) starField.rotation.y += 0.00008;
+
+  camera.position.z = zoom;
+  renderer.render(scene, camera);
+}
+
+// ════════════════════════════════════════
+// GO!
+// ════════════════════════════════════════
+init().catch(console.error);
+</script>
+</body>
+</html>
